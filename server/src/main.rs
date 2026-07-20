@@ -91,8 +91,9 @@ async fn main() {
         .route("/recordings/{id}/csv", get(pages::recording_csv))
         .with_state(state);
 
+    let bind_host = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-    let addr = format!("127.0.0.1:{port}");
+    let addr = format!("{bind_host}:{port}");
     println!("strength-server listening on http://{addr}");
     let listener = tokio::net::TcpListener::bind(&addr).await.expect("bind");
     axum::serve(listener, app).await.expect("serve");

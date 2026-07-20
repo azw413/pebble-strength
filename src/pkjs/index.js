@@ -4,7 +4,7 @@
 
 // For the emulator this reaches the dev server directly. For a physical
 // watch, set this to your machine's LAN address, e.g. 'http://192.168.1.20:8080'.
-var SERVER = 'http://localhost:8080';
+var SERVER = 'http://192.168.1.36:8090';
 
 var MSG_REC_META = 0;
 var MSG_REC_CHUNK = 1;
