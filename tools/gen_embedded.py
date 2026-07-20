@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """Generate src/c/embedded_workouts.h from the dev server's device API.
 
-Dev workflow until real sync (M3): edit workouts on http://localhost:8080,
-then:  python3 tools/gen_embedded.py && pebble build
+Dev workflow until real sync (M3): edit workouts on the dev server, then:
+    python3 tools/gen_embedded.py && pebble build
 Requires the server running with DEV_LOGIN=1.
+
+Override the server with STRENGTH_SERVER, e.g.
+    STRENGTH_SERVER=http://192.168.1.36:8090 python3 tools/gen_embedded.py
 """
 import base64
 import json
+import os
 import pathlib
 import urllib.request
 
 root = pathlib.Path(__file__).resolve().parents[1]
-url = "http://localhost:8080/api/device/workouts"
+server = os.environ.get("STRENGTH_SERVER", "http://localhost:8090").rstrip("/")
+url = f"{server}/api/device/workouts"
 data = json.loads(urllib.request.urlopen(url, timeout=5).read())
 
 lines = [
