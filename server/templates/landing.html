@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Strength</h1>
+<p>Program strength workouts here, run them from your Pebble: guided sets,
+automatic rep counting, rest timers, and training history.</p>
+
+{% if google_enabled %}
+<p><a class="btn primary" href="/auth/google">Sign in with Google</a></p>
+{% endif %}
+
+{% if dev_login %}
+<form method="post" action="/auth/dev">
+  <button type="submit">Dev login (local only)</button>
+</form>
+{% endif %}
+
+{% if !google_enabled && !dev_login %}
+<div class="card">
+  <p>No sign-in method is configured. Set <code>GOOGLE_CLIENT_ID</code> and
+  <code>GOOGLE_CLIENT_SECRET</code> (see <code>server/.env.example</code>),
+  or set <code>DEV_LOGIN=1</code> for local development.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Workouts — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/recordings">Recordings</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out ({{ user_name }})</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1>Your workouts</h1>
+
+<div class="card">
+  <strong>Watch slots</strong>
+  <div class="muted">
+    {% for s in slots %}<span style="margin-right:1rem">{{ s }}</span>{% endfor %}
+  </div>
+</div>
+
+<p><a class="btn primary" href="/workouts/new">New workout</a></p>
+
+{% for c in cards %}
+<div class="card">
+  <strong>{{ c.title }}</strong>
+  {% if c.slot_label != "" %}<span class="badge accent">{{ c.slot_label }}</span>{% endif %}
+  {% if c.is_public %}<span class="badge">public</span>{% endif %}
+  <span class="badge">{{ c.exercise_count }} exercises · {{ c.set_count }} sets</span>
+  <span class="badge">{{ c.packed_size }} B / {{ pack_cap }} B packed</span>
+  {% if c.description != "" %}<p class="muted">{{ c.description }}</p>{% endif %}
+  <div class="row">
+    <a class="btn" href="/workouts/{{ c.id }}/edit">Edit</a>
+    <button class="small" onclick="deleteWorkout({{ c.id }})">Delete</button>
+  </div>
+</div>
+{% endfor %}
+
+{% if cards.is_empty() %}
+<p class="muted">No workouts yet — create one and assign it a watch slot.</p>
+{% endif %}
+
+<script>
+async function deleteWorkout(id) {
+  if (!confirm('Delete this workout?')) return;
+  const res = await fetch('/api/workouts/' + id, { method: 'DELETE' });
+  if (res.ok) location.reload();
+  else alert('Delete failed: ' + await res.text());
+}
+</script>
+{% endblock %}

@@ -1,0 +1,17 @@
+# Pebble build output
+build/
+.lock-waf*
+
+# Rust / server
+server/target/
+server/*.db
+server/*.db-*
+server/.env
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+*.swp

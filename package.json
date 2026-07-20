@@ -1,0 +1,40 @@
+{
+  "name": "strength",
+  "author": "Andrew Whaley",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Strength",
+    "uuid": "7d6a30ac-1c7d-4489-8341-83ec6a5336f3",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "basalt",
+      "chalk",
+      "diorite",
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "MSG_TYPE",
+      "REC_ID",
+      "SEQ",
+      "CHUNK",
+      "SAMPLE_COUNT",
+      "RATE",
+      "MOVEMENT",
+      "TIMED",
+      "SET_INDEX",
+      "ACTUAL",
+      "TRUNCATED",
+      "WORKOUT_NAME"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}

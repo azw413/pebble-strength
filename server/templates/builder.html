@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/recordings">Recordings</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1>{{ heading }}</h1>
+
+<div class="card">
+  <div class="row">
+    <label>Title <input type="text" id="title" maxlength="64" size="28"></label>
+    <label>Watch slot
+      <select id="slot">
+        <option value="">not on watch</option>
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="is_public"> public (shareable)</label>
+  </div>
+  <div class="row">
+    <label style="flex:1">Description<br>
+      <textarea id="description" rows="2" style="width:100%"></textarea>
+    </label>
+  </div>
+</div>
+
+<div id="exlist"></div>
+
+<div class="row">
+  <button id="addex">+ Add exercise</button>
+  <span id="estimate" class="badge"></span>
+</div>
+
+<div class="row">
+  <button id="save" class="primary">Save workout</button>
+  <a class="btn" href="/workouts">Cancel</a>
+  <span id="err" class="error"></span>
+</div>
+
+<div id="packedwrap" style="display:none">
+  <h2 style="font-size:1.1rem">Packed watch binary</h2>
+  <button id="showpacked" class="small">Show packed bytes</button>
+  <pre class="hex" id="packedhex" style="display:none"></pre>
+</div>
+
+<script>
+const EXERCISES = {{ exercises_json|safe }};
+const WORKOUT = {{ workout_json|safe }};
+const WORKOUT_ID = {{ workout_id_json|safe }};
+const PACK_CAP = 228;
+const byId = new Map(EXERCISES.map(e => [e.id, e]));
+
+let state = WORKOUT
+  ? JSON.parse(JSON.stringify(WORKOUT))
+  : { title: '', description: '', is_public: false, slot: null, exercises: [] };
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+function defaultExercise() {
+  const first = EXERCISES.find(e => e.name === 'Bench Press') || EXERCISES[0];
+  return {
+    exercise_id: first.id, weight_kg: 0,
+    is_timed: first.default_timed, is_amrap: false,
+    sets: [ { target: first.default_timed ? 30 : 10, rest_secs: 90 } ]
+  };
+}
+
+function movementSelect(ex) {
+  const sel = el('select');
+  const areas = [...new Set(EXERCISES.map(e => e.body_area))];
+  for (const area of areas) {
+    const grp = document.createElement('optgroup');
+    grp.label = area;
+    for (const e of EXERCISES.filter(x => x.body_area === area)) {
+      const opt = el('option', '', e.name);
+      opt.value = e.id;
+      if (e.id === ex.exercise_id) opt.selected = true;
+      grp.appendChild(opt);
+    }
+    sel.appendChild(grp);
+  }
+  sel.onchange = () => {
+    ex.exercise_id = Number(sel.value);
+    const info = byId.get(ex.exercise_id);
+    if (info.default_timed) ex.is_timed = true;
+    render();
+  };
+  return sel;
+}
+
+function muscleHint(ex) {
+  const info = byId.get(ex.exercise_id);
+  const parts = [];
+  if (info.primary_muscles) parts.push(info.primary_muscles);
+  if (info.secondary_muscles) parts.push('(' + info.secondary_muscles + ')');
+  return el('span', 'muted', parts.join(' '));
+}
+
+function setRow(ex, s, j) {
+  const row = el('div', 'row');
+  row.appendChild(el('span', 'muted', 'Set ' + (j + 1)));
+
+  const target = el('input');
+  target.type = 'number'; target.min = ex.is_amrap ? 0 : 1;
+  target.max = ex.is_timed ? 255 : 100; target.value = s.target;
+  target.oninput = () => { s.target = Number(target.value); };
+  row.appendChild(target);
+  row.appendChild(el('span', 'muted', ex.is_timed ? 'sec hold' : 'reps'));
+
+  const rest = el('input');
+  rest.type = 'number'; rest.min = 0; rest.max = 1275; rest.step = 5; rest.value = s.rest_secs;
+  rest.oninput = () => { s.rest_secs = Number(rest.value); };
+  row.appendChild(rest);
+  row.appendChild(el('span', 'muted', 'sec rest'));
+
+  const rm = el('button', 'small', '×');
+  rm.onclick = () => { ex.sets.splice(j, 1); render(); };
+  if (ex.sets.length > 1) row.appendChild(rm);
+  return row;
+}
+
+function exerciseCard(ex, i) {
+  const card = el('div', 'card');
+  const head = el('div', 'row');
+  head.appendChild(movementSelect(ex));
+  head.appendChild(muscleHint(ex));
+
+  const up = el('button', 'small', '↑');
+  up.disabled = i === 0;
+  up.onclick = () => { state.exercises.splice(i - 1, 0, state.exercises.splice(i, 1)[0]); render(); };
+  const down = el('button', 'small', '↓');
+  down.disabled = i === state.exercises.length - 1;
+  down.onclick = () => { state.exercises.splice(i + 1, 0, state.exercises.splice(i, 1)[0]); render(); };
+  const rm = el('button', 'small', 'remove');
+  rm.onclick = () => { state.exercises.splice(i, 1); render(); };
+  head.appendChild(up); head.appendChild(down); head.appendChild(rm);
+  card.appendChild(head);
+
+  const opts = el('div', 'row');
+  const weight = el('input');
+  weight.type = 'number'; weight.min = 0; weight.max = 500; weight.step = 0.25; weight.value = ex.weight_kg;
+  weight.oninput = () => { ex.weight_kg = Number(weight.value); };
+  const wl = el('label', '', 'weight ');
+  wl.appendChild(weight); wl.appendChild(document.createTextNode(' kg (0 = bodyweight)'));
+  opts.appendChild(wl);
+
+  const timed = el('input'); timed.type = 'checkbox'; timed.checked = ex.is_timed;
+  timed.onchange = () => { ex.is_timed = timed.checked; render(); };
+  const tl = el('label'); tl.appendChild(timed); tl.appendChild(document.createTextNode(' timed hold'));
+  opts.appendChild(tl);
+
+  const amrap = el('input'); amrap.type = 'checkbox'; amrap.checked = ex.is_amrap;
+  amrap.onchange = () => { ex.is_amrap = amrap.checked; render(); };
+  const al = el('label'); al.appendChild(amrap); al.appendChild(document.createTextNode(' AMRAP'));
+  opts.appendChild(al);
+  card.appendChild(opts);
+
+  ex.sets.forEach((s, j) => card.appendChild(setRow(ex, s, j)));
+
+  const add = el('button', 'small', '+ set');
+  add.onclick = () => {
+    const last = ex.sets[ex.sets.length - 1];
+    ex.sets.push(last ? { target: last.target, rest_secs: last.rest_secs } : { target: 10, rest_secs: 90 });
+    render();
+  };
+  card.appendChild(add);
+  return card;
+}
+
+function estimateSize() {
+  return 28 + state.exercises.reduce((a, e) => a + 6 + 2 * e.sets.length, 0);
+}
+
+function render() {
+  const list = document.getElementById('exlist');
+  list.innerHTML = '';
+  state.exercises.forEach((ex, i) => list.appendChild(exerciseCard(ex, i)));
+  const size = estimateSize();
+  const badge = document.getElementById('estimate');
+  badge.textContent = 'packs to ' + size + ' B / ' + PACK_CAP + ' B';
+  badge.style.background = size > PACK_CAP ? '#fde8e8' : '';
+  badge.style.color = size > PACK_CAP ? '#d33' : '';
+}
+
+async function save() {
+  state.title = document.getElementById('title').value;
+  state.description = document.getElementById('description').value;
+  state.is_public = document.getElementById('is_public').checked;
+  const slotVal = document.getElementById('slot').value;
+  state.slot = slotVal === '' ? null : Number(slotVal);
+  const err = document.getElementById('err');
+  err.textContent = '';
+
+  const url = WORKOUT_ID === null ? '/api/workouts' : '/api/workouts/' + WORKOUT_ID;
+  const method = WORKOUT_ID === null ? 'POST' : 'PUT';
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(state)
+  });
+  if (res.ok) location.href = '/workouts';
+  else err.textContent = await res.text();
+}
+
+document.getElementById('addex').onclick = () => { state.exercises.push(defaultExercise()); render(); };
+document.getElementById('save').onclick = save;
+
+document.getElementById('title').value = state.title;
+document.getElementById('description').value = state.description;
+document.getElementById('is_public').checked = state.is_public;
+document.getElementById('slot').value = state.slot === null ? '' : String(state.slot);
+
+if (WORKOUT_ID !== null) {
+  document.getElementById('packedwrap').style.display = '';
+  document.getElementById('showpacked').onclick = async () => {
+    const res = await fetch('/api/workouts/' + WORKOUT_ID + '/packed');
+    const pre = document.getElementById('packedhex');
+    pre.style.display = '';
+    if (res.ok) {
+      const p = await res.json();
+      pre.textContent = '// ' + p.title + ' — ' + p.size + ' B of ' + p.cap + ' B\n' + p.hex.join('\n');
+    } else {
+      pre.textContent = await res.text();
+    }
+  };
+}
+
+if (state.exercises.length === 0) state.exercises.push(defaultExercise());
+render();
+</script>
+{% endblock %}

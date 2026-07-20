@@ -1,0 +1,362 @@
+use askama::Template;
+use axum::extract::{Path, State};
+use axum::response::{Html, Redirect};
+use axum::Form;
+use diesel::prelude::*;
+use serde::Deserialize;
+
+use crate::auth::{self, CurrentUser};
+use crate::error::AppError;
+use crate::models::{Device, Exercise, Workout};
+use crate::schema::{devices, exercises, workouts};
+use crate::{db, pack, workouts as wk, AppState};
+
+/// serde_json → string safe to inline inside a <script> block.
+fn script_json<T: serde::Serialize>(value: &T) -> Result<String, AppError> {
+    let s = serde_json::to_string(value).map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(s.replace('<', "\\u003c"))
+}
+
+#[derive(Template)]
+#[template(path = "landing.html")]
+struct LandingTemplate {
+    google_enabled: bool,
+    dev_login: bool,
+}
+
+pub async fn landing(State(state): State<AppState>) -> Result<Html<String>, AppError> {
+    let tpl = LandingTemplate {
+        google_enabled: state.cfg.google_client_id.is_some(),
+        dev_login: state.cfg.dev_login,
+    };
+    Ok(Html(tpl.render()?))
+}
+
+pub struct WorkoutCard {
+    pub id: i32,
+    pub title: String,
+    pub description: String,
+    pub slot_label: String,
+    pub is_public: bool,
+    pub exercise_count: usize,
+    pub set_count: usize,
+    pub packed_size: usize,
+}
+
+#[derive(Template)]
+#[template(path = "workouts.html")]
+struct WorkoutsTemplate {
+    user_name: String,
+    cards: Vec<WorkoutCard>,
+    slots: Vec<String>,
+    pack_cap: usize,
+}
+
+pub async fn workouts_page(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+) -> Result<Html<String>, AppError> {
+    let user_name = if user.display_name.is_empty() { user.email.clone() } else { user.display_name.clone() };
+    let (cards, slots) = db::run(&state.pool, move |conn| {
+        let ws: Vec<Workout> = workouts::table
+            .filter(workouts::owner_id.eq(user.id))
+            .order(workouts::created_at.asc())
+            .load(conn)?;
+        let ids: Vec<i32> = ws.iter().map(|w| w.id).collect();
+        let mut details = wk::load_details(conn, &ids)?;
+        let slot_of = wk::slot_map(conn, user.id)?;
+
+        let cards: Vec<WorkoutCard> = ws
+            .into_iter()
+            .map(|w| {
+                let rows = details.remove(&w.id).unwrap_or_default();
+                let packed_size = pack::pack_workout(&w.title, &wk::to_pack_exercises(&rows))
+                    .map(|b| b.len())
+                    .unwrap_or(0);
+                WorkoutCard {
+                    slot_label: slot_of
+                        .get(&w.id)
+                        .map(|s| format!("watch slot {s}"))
+                        .unwrap_or_default(),
+                    exercise_count: rows.len(),
+                    set_count: rows.iter().map(|(_, _, s)| s.len()).sum(),
+                    id: w.id,
+                    title: w.title,
+                    description: w.description,
+                    is_public: w.is_public,
+                    packed_size,
+                }
+            })
+            .collect();
+
+        let by_slot: std::collections::HashMap<i32, i32> =
+            slot_of.iter().map(|(w, s)| (*s, *w)).collect();
+        let title_of: std::collections::HashMap<i32, &str> =
+            cards.iter().map(|c| (c.id, c.title.as_str())).collect();
+        let slots = (1..=wk::MAX_SLOT)
+            .map(|s| {
+                by_slot
+                    .get(&s)
+                    .and_then(|wid| title_of.get(wid))
+                    .map(|t| format!("{s}: {t}"))
+                    .unwrap_or_else(|| format!("{s}: —"))
+            })
+            .collect();
+        Ok((cards, slots))
+    })
+    .await?;
+
+    let tpl = WorkoutsTemplate { user_name, cards, slots, pack_cap: pack::PACK_CAP };
+    Ok(Html(tpl.render()?))
+}
+
+#[derive(Template)]
+#[template(path = "builder.html")]
+struct BuilderTemplate {
+    heading: String,
+    exercises_json: String,
+    workout_json: String,
+    workout_id_json: String,
+}
+
+pub async fn builder_new(
+    State(state): State<AppState>,
+    CurrentUser(_user): CurrentUser,
+) -> Result<Html<String>, AppError> {
+    let exs = db::run(&state.pool, |conn| {
+        Ok(exercises::table
+            .order((exercises::body_area.asc(), exercises::name.asc()))
+            .load::<Exercise>(conn)?)
+    })
+    .await?;
+    let tpl = BuilderTemplate {
+        heading: "New workout".to_string(),
+        exercises_json: script_json(&exs)?,
+        workout_json: "null".to_string(),
+        workout_id_json: "null".to_string(),
+    };
+    Ok(Html(tpl.render()?))
+}
+
+pub async fn builder_edit(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+) -> Result<Html<String>, AppError> {
+    let (exs, input) = db::run(&state.pool, move |conn| {
+        let w: Workout = workouts::table
+            .filter(workouts::id.eq(id))
+            .filter(workouts::owner_id.eq(user.id))
+            .first(conn)?;
+        let details = wk::load_details(conn, &[w.id])?;
+        let rows = details.get(&w.id).cloned().unwrap_or_default();
+        let slot = wk::slot_map(conn, user.id)?.get(&w.id).copied();
+        let input = wk::to_input(&rows, &w, slot);
+        let exs = exercises::table
+            .order((exercises::body_area.asc(), exercises::name.asc()))
+            .load::<Exercise>(conn)?;
+        Ok((exs, input))
+    })
+    .await?;
+    let tpl = BuilderTemplate {
+        heading: format!("Edit: {}", input.title),
+        exercises_json: script_json(&exs)?,
+        workout_json: script_json(&input)?,
+        workout_id_json: id.to_string(),
+    };
+    Ok(Html(tpl.render()?))
+}
+
+pub struct DeviceRow {
+    pub id: i32,
+    pub label: String,
+    pub created: String,
+    pub last_sync: String,
+}
+
+#[derive(Template)]
+#[template(path = "devices.html")]
+struct DevicesTemplate {
+    rows: Vec<DeviceRow>,
+    new_token: Option<String>,
+}
+
+async fn render_devices(
+    state: &AppState,
+    user_id: i32,
+    new_token: Option<String>,
+) -> Result<Html<String>, AppError> {
+    let rows = db::run(&state.pool, move |conn| {
+        let ds: Vec<Device> = devices::table
+            .filter(devices::user_id.eq(user_id))
+            .order(devices::created_at.asc())
+            .load(conn)?;
+        Ok(ds
+            .into_iter()
+            .map(|d| DeviceRow {
+                id: d.id,
+                label: d.label,
+                created: d.created_at.format("%Y-%m-%d").to_string(),
+                last_sync: d
+                    .last_sync_at
+                    .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+                    .unwrap_or_else(|| "never".to_string()),
+            })
+            .collect())
+    })
+    .await?;
+    let tpl = DevicesTemplate { rows, new_token };
+    Ok(Html(tpl.render()?))
+}
+
+pub async fn devices_page(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+) -> Result<Html<String>, AppError> {
+    render_devices(&state, user.id, None).await
+}
+
+#[derive(Deserialize)]
+pub struct NewDeviceForm {
+    label: String,
+}
+
+pub async fn create_device(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Form(form): Form<NewDeviceForm>,
+) -> Result<Html<String>, AppError> {
+    let token = auth::random_token();
+    let hash = auth::hash_token(&token);
+    let label = if form.label.trim().is_empty() { "Pebble".to_string() } else { form.label.trim().to_string() };
+    db::run(&state.pool, move |conn| {
+        diesel::insert_into(devices::table)
+            .values((
+                devices::user_id.eq(user.id),
+                devices::token_hash.eq(&hash),
+                devices::label.eq(&label),
+            ))
+            .execute(conn)?;
+        Ok(())
+    })
+    .await?;
+    render_devices(&state, user.id, Some(token)).await
+}
+
+pub struct RecordingRow {
+    pub id: i32,
+    pub when: String,
+    pub exercise: String,
+    pub workout: String,
+    pub set_index: i32,
+    pub label: String,
+    pub duration: String,
+    pub truncated: bool,
+}
+
+#[derive(Template)]
+#[template(path = "recordings.html")]
+struct RecordingsTemplate {
+    rows: Vec<RecordingRow>,
+}
+
+pub async fn recordings_page(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+) -> Result<Html<String>, AppError> {
+    use crate::schema::recordings;
+    let rows = db::run(&state.pool, move |conn| {
+        let rs: Vec<(i32, String, String, i32, i32, bool, i32, i32, bool, chrono::NaiveDateTime)> =
+            recordings::table
+                .filter(recordings::user_id.eq(user.id))
+                .order(recordings::recorded_at.desc())
+                .limit(200)
+                .select((
+                    recordings::id,
+                    recordings::exercise_name,
+                    recordings::workout_name,
+                    recordings::set_index,
+                    recordings::actual,
+                    recordings::is_timed,
+                    recordings::sample_rate,
+                    recordings::sample_count,
+                    recordings::truncated,
+                    recordings::recorded_at,
+                ))
+                .load(conn)?;
+        Ok(rs
+            .into_iter()
+            .map(|(id, ex, wo, set, actual, timed, rate, count, trunc, at)| RecordingRow {
+                id,
+                when: at.format("%Y-%m-%d %H:%M:%S").to_string(),
+                exercise: if ex.is_empty() { "?".into() } else { ex },
+                workout: wo,
+                set_index: set + 1,
+                label: if timed { format!("{actual} s hold") } else { format!("{actual} reps") },
+                duration: format!("{:.1} s", count as f32 / rate.max(1) as f32),
+                truncated: trunc,
+            })
+            .collect())
+    })
+    .await?;
+    let tpl = RecordingsTemplate { rows };
+    Ok(Html(tpl.render()?))
+}
+
+pub async fn recording_csv(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+) -> Result<axum::response::Response, AppError> {
+    use crate::schema::recordings;
+    let (blob, rate) = db::run(&state.pool, move |conn| {
+        let row: (Vec<u8>, i32) = recordings::table
+            .filter(recordings::id.eq(id))
+            .filter(recordings::user_id.eq(user.id))
+            .select((recordings::samples, recordings::sample_rate))
+            .first(conn)?;
+        Ok(row)
+    })
+    .await?;
+
+    let mut csv = String::with_capacity(blob.len() * 4);
+    csv.push_str("t_ms,x,y,z\n");
+    let step_ms = 1000.0 / rate.max(1) as f32;
+    for (i, s) in blob.chunks_exact(6).enumerate() {
+        let x = i16::from_le_bytes([s[0], s[1]]);
+        let y = i16::from_le_bytes([s[2], s[3]]);
+        let z = i16::from_le_bytes([s[4], s[5]]);
+        csv.push_str(&format!("{:.0},{x},{y},{z}\n", i as f32 * step_ms));
+    }
+    use axum::http::header;
+    use axum::response::IntoResponse;
+    Ok((
+        [
+            (header::CONTENT_TYPE, "text/csv".to_string()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"recording_{id}.csv\""),
+            ),
+        ],
+        csv,
+    )
+        .into_response())
+}
+
+pub async fn delete_device(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+) -> Result<Redirect, AppError> {
+    db::run(&state.pool, move |conn| {
+        diesel::delete(
+            devices::table
+                .filter(devices::id.eq(id))
+                .filter(devices::user_id.eq(user.id)),
+        )
+        .execute(conn)?;
+        Ok(())
+    })
+    .await?;
+    Ok(Redirect::to("/devices"))
+}

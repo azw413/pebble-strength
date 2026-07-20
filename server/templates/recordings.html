@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Recordings — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/recordings">Recordings</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1>Accelerometer recordings</h1>
+<p class="muted">Raw 25 Hz captures of your sets, labelled with the corrected
+count — the corpus for tuning the rep counter and, later, movement
+classification. Replay one offline with
+<code>python3 tools/replay.py recording_ID.csv</code>.</p>
+
+{% for r in rows %}
+<div class="card">
+  <strong>{{ r.exercise }}</strong>
+  <span class="badge accent">{{ r.label }}</span>
+  <span class="badge">{{ r.duration }}</span>
+  <span class="badge">set {{ r.set_index }}</span>
+  {% if r.workout != "" %}<span class="badge">{{ r.workout }}</span>{% endif %}
+  {% if r.truncated %}<span class="badge">truncated</span>{% endif %}
+  <span class="muted">{{ r.when }}</span>
+  <a class="btn" style="float:right" href="/recordings/{{ r.id }}/csv">CSV</a>
+</div>
+{% endfor %}
+
+{% if rows.is_empty() %}
+<p class="muted">No recordings yet. Run a workout on the watch with the phone
+connected — every set uploads automatically.</p>
+{% endif %}
+{% endblock %}

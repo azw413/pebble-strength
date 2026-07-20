@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Devices — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/recordings">Recordings</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1>Devices</h1>
+
+{% match new_token %}
+{% when Some with (token) %}
+<div class="tokenbox">
+  <strong>Device token created — copy it now, it is shown only once:</strong>
+  <p><code>{{ token }}</code></p>
+  <p class="muted">Try it: <code>curl -H "Authorization: Bearer {{ token }}" http://localhost:8080/api/device/workouts</code></p>
+</div>
+{% when None %}
+{% endmatch %}
+
+<p class="muted">The phone app will create its own token during pairing (SPEC §8.1).
+Tokens minted here are for development and testing.</p>
+
+<form method="post" action="/devices" class="row">
+  <input type="text" name="label" placeholder="Label (e.g. Pebble Time)">
+  <button type="submit" class="primary">Create device token</button>
+</form>
+
+{% for d in rows %}
+<div class="card">
+  <strong>{{ d.label }}</strong>
+  <span class="badge">created {{ d.created }}</span>
+  <span class="badge">last sync: {{ d.last_sync }}</span>
+  <form method="post" action="/devices/{{ d.id }}/delete" style="display:inline">
+    <button class="small">Revoke</button>
+  </form>
+</div>
+{% endfor %}
+{% endblock %}
