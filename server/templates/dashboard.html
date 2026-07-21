@@ -101,11 +101,12 @@ function renderChart(d) {
   svgEl.innerHTML = '';
   const W = 680, H = 300, m = { t: 20, r: 48, b: 46, l: 52 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
-  const S = d.sessions;
+  const S = d.axis;
+  const hasData = S.some(a => a.volume > 0 || a.one_rm != null);
   document.getElementById('charthint').textContent =
-    S.length ? 'Bars: session volume. Line: estimated 1RM' + (exName() ? ' for ' + exName() : '') + '.'
-             : '';
-  if (!S.length) {
+    hasData ? 'Bars: volume. Line: estimated 1RM' + (exName() ? ' for ' + exName() : '') + '.'
+            : '';
+  if (!hasData) {
     svgEl.appendChild(svg('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', fill: '#777' },
       'No sessions in this period.'));
     return;
@@ -140,11 +141,10 @@ function renderChart(d) {
       x: cx - bw / 2, y: m.t + ih - bh, width: bw, height: bh,
       fill: '#d33', 'fill-opacity': 0.22
     }));
-    // x label: day (or M-D)
+    // x label from the server-provided bucket label (thinned if crowded)
     if (n <= 16 || i % Math.ceil(n / 16) === 0) {
-      const lbl = s.date.slice(5);
       const t = svg('text', { x: cx, y: m.t + ih + 14, 'text-anchor': 'end', fill: '#777',
-        transform: `rotate(-40 ${cx} ${m.t + ih + 14})` }, lbl);
+        transform: `rotate(-40 ${cx} ${m.t + ih + 14})` }, s.label);
       svgEl.appendChild(t);
     }
   });

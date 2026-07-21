@@ -53,7 +53,7 @@ fn add_months(d: NaiveDate, delta: i32) -> NaiveDate {
 fn window_bounds(window: &str, offset: i32, today: NaiveDate) -> (NaiveDate, NaiveDate, String) {
     match window {
         "week" => {
-            let dow = today.weekday().num_days_from_monday() as i64;
+            let dow = today.weekday().num_days_from_sunday() as i64;
             let start = today - Duration::days(dow) + Duration::weeks(offset as i64);
             let end = start + Duration::weeks(1);
             let label = format!("Week of {}", start.format("%-d %b %Y"));
@@ -121,14 +121,40 @@ pub fn dashboard_json(
         .select((bodyweights::measured_on, bodyweights::weight_kg))
         .load(conn)?;
 
-    let mut bars: Vec<serde_json::Value> = Vec::new();
+    // Fixed x-axis buckets: weekday over the week, day-of-month over the month,
+    // or month over the year. Empty slots still render, so the scale is real.
+    let bucket_count: usize = match q.window.as_str() {
+        "week" => 7,
+        "year" => 12,
+        _ => (end - start).num_days() as usize,
+    };
+    let axis_labels: Vec<String> = (0..bucket_count)
+        .map(|i| match q.window.as_str() {
+            "week" => (start + Duration::days(i as i64)).format("%a %d/%m").to_string(),
+            "year" => NaiveDate::from_ymd_opt(start.year(), i as u32 + 1, 1)
+                .unwrap()
+                .format("%b")
+                .to_string(),
+            _ => (i + 1).to_string(),
+        })
+        .collect();
+    let bucket_of = |d: NaiveDate| -> usize {
+        match q.window.as_str() {
+            "week" => (d - start).num_days().clamp(0, 6) as usize,
+            "year" => (d.month0() as usize).min(11),
+            _ => (d.day0() as usize).min(bucket_count - 1),
+        }
+    };
+
+    let mut vol_buckets = vec![0.0f32; bucket_count];
+    let mut rm_buckets: Vec<Option<f32>> = vec![None; bucket_count];
     let mut total_volume = 0.0f32;
     let mut best_1rm: Option<f32> = None;
     let mut hold_secs = 0i64;
 
     for s in &sess {
         let bw = bw_for(&bw_log, s.performed_on.date());
-        let mut vol = 0.0f32;
+        let bi = bucket_of(s.performed_on.date());
         let mut sess_1rm: Option<f32> = None;
         for st in sets.iter().filter(|x| x.session_id == s.id) {
             if st.is_timed {
@@ -137,23 +163,29 @@ pub fn dashboard_json(
             }
             let factor = factors.get(&st.movement_id).copied().unwrap_or(0.0);
             let load = bw * factor + st.weight_kg.unwrap_or(0.0);
-            vol += st.actual as f32 * load;
+            let vol = st.actual as f32 * load;
+            vol_buckets[bi] += vol;
+            total_volume += vol;
             if Some(st.movement_id) == selected_ex && st.actual > 0 {
                 let e1rm = load * (1.0 + st.actual as f32 / 30.0);
                 sess_1rm = Some(sess_1rm.map_or(e1rm, |b: f32| b.max(e1rm)));
             }
         }
-        total_volume += vol;
         if let Some(v) = sess_1rm {
             best_1rm = Some(best_1rm.map_or(v, |b: f32| b.max(v)));
+            rm_buckets[bi] = Some(rm_buckets[bi].map_or(v, |b: f32| b.max(v)));
         }
-        bars.push(json!({
-            "date": s.performed_on.format("%Y-%m-%d").to_string(),
-            "name": s.workout_name,
-            "volume": vol.round(),
-            "one_rm": sess_1rm.map(|v| (v * 10.0).round() / 10.0),
-        }));
     }
+
+    let axis: Vec<serde_json::Value> = (0..bucket_count)
+        .map(|i| {
+            json!({
+                "label": axis_labels[i],
+                "volume": vol_buckets[i].round(),
+                "one_rm": rm_buckets[i].map(|v| (v * 10.0).round() / 10.0),
+            })
+        })
+        .collect();
 
     // Exercise picker: rep-based movements that appear in any of the user's sessions.
     let mut picker_ids: Vec<i32> = session_sets::table
@@ -181,7 +213,7 @@ pub fn dashboard_json(
         "can_next": q.offset < 0,
         "selected_exercise": selected_ex,
         "exercises": exercises_json,
-        "sessions": bars,
+        "axis": axis,
         "insights": {
             "total_volume": total_volume.round(),
             "session_count": sess.len(),
