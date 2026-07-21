@@ -33,8 +33,14 @@ static int16_t s_hold_remaining;  // timed mode: seconds left in hold
 static uint8_t s_leadin;
 static int16_t s_rest_remaining;
 static uint8_t s_actual[PACK_MAX_EXERCISES][PACK_MAX_SETS];
+static uint16_t s_work_secs[PACK_MAX_EXERCISES][PACK_MAX_SETS];
 static time_t s_started;
 static bool s_discard_on_close;
+
+// Work timer for rep sets: the big display until the rep counter is trusted.
+static int16_t s_work_elapsed;
+// Set once Up/Down corrects the count, so auto-counting can't clobber the fix.
+static bool s_count_locked;
 
 // M2: accel capture + auto rep counting.
 static RepCounter s_rc;
@@ -66,13 +72,14 @@ static void accel_handler(AccelData *data, uint32_t num) {
     if (s_phase == PHASE_ACTIVE && !cur_timed()) {
       if (rep_counter_feed(&s_rc, data[i].x, data[i].y, data[i].z,
                            (uint32_t)data[i].timestamp)) {
-        if (s_counter < 250) s_counter++;
+        // Keep counting for the tuning corpus, but never over a manual fix.
+        if (!s_count_locked && s_counter < 250) s_counter++;
         counted = true;
       }
     }
   }
-  if (counted) {
-    vibes_short_pulse();
+  // No per-rep vibe: the counter is untuned and buzzed continuously.
+  if (counted && !s_count_locked) {
     redraw();
   }
 }
@@ -119,18 +126,28 @@ static void enter_active(void) {
   s_phase = PHASE_ACTIVE;
   cancel_timer();
   if (cur_timed()) {
-    s_hold_state = HOLD_IDLE;
+    // Drop straight into the 3-2-1 lead-in (consistent with rep sets, which
+    // start immediately) — the lead-in itself is the get-into-position window.
+    s_hold_state = HOLD_LEADIN;
+    s_leadin = 3;
     s_hold_remaining = cur_set().target;
-    // Accel capture starts when the hold actually starts.
+    vibes_short_pulse();
+    schedule_tick();
+    // Accel capture starts when the hold actually starts (leadin -> running).
   } else {
-    // Auto-count from zero; Up/Down corrects, Select confirms.
+    // Work timer is the headline; auto-count runs underneath it. Up/Down
+    // corrects (and locks) the count, Select confirms.
     s_counter = 0;
+    s_work_elapsed = 0;
+    s_count_locked = false;
     uint8_t mid = cur_ex()->movement_id;
     uint16_t min_rep = mid < MOVEMENT_COUNT ? MOVEMENTS[mid].min_rep_ms : 900;
     uint8_t smoothing = mid < MOVEMENT_COUNT ? MOVEMENTS[mid].smoothing : 5;
     rep_counter_init(&s_rc, min_rep, smoothing);
     recorder_begin();
     accel_start();
+    vibes_short_pulse();  // one buzz to mark the start of the set
+    schedule_tick();      // drives the work timer
   }
   redraw();
 }
@@ -162,6 +179,9 @@ static void advance_after_rest(void) {
 
 static void finish_set(uint8_t actual) {
   s_actual[s_cur_ex][s_cur_set] = actual;
+  // Work time: counted up for rep sets, elapsed hold for timed ones.
+  s_work_secs[s_cur_ex][s_cur_set] =
+      cur_timed() ? (uint16_t)actual : (uint16_t)s_work_elapsed;
   accel_stop();
   recorder_stage(cur_ex()->movement_id, s_cur_set, cur_timed(), s_workout.name);
   s_label_pending = true;
@@ -196,6 +216,10 @@ static void tick(void *context) {
     }
     schedule_tick();
     redraw();
+  } else if (s_phase == PHASE_ACTIVE && !cur_timed()) {
+    s_work_elapsed++;
+    schedule_tick();
+    redraw();
   } else if (s_phase == PHASE_ACTIVE && s_hold_state == HOLD_LEADIN) {
     s_leadin--;
     if (s_leadin == 0) {
@@ -228,64 +252,73 @@ static void draw_text(GContext *ctx, const char *text, const char *font_key, GRe
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 }
 
+// NB: ROBOTO_BOLD_SUBSET_49 is a subset font — digits and ':' only. Any string
+// containing letters must use a GOTHIC face or it renders blank.
+#define FONT_HUGE_NUM FONT_KEY_ROBOTO_BOLD_SUBSET_49
+
 static void render_active(GContext *ctx, GRect b) {
   char buf[64];
   const PackExercise *e = cur_ex();
 
   draw_text(ctx, movement_name(e->movement_id), FONT_KEY_GOTHIC_24_BOLD,
-            GRect(2, 0, b.size.w - 4, 30));
+            GRect(2, 0, b.size.w - 4, 28));
 
   if (e->weight_q > 0) {
-    snprintf(buf, sizeof buf, "Set %d of %d  @ %d kg", s_cur_set + 1, e->set_count,
+    snprintf(buf, sizeof buf, "Set %d/%d  %d kg", s_cur_set + 1, e->set_count,
              e->weight_q / 4);
   } else {
     snprintf(buf, sizeof buf, "Set %d of %d", s_cur_set + 1, e->set_count);
   }
-  draw_text(ctx, buf, FONT_KEY_GOTHIC_18, GRect(2, 32, b.size.w - 4, 22));
+  draw_text(ctx, buf, FONT_KEY_GOTHIC_24, GRect(2, 26, b.size.w - 4, 26));
 
-  GRect big = GRect(0, b.size.h / 2 - 30, b.size.w, 50);
-  GRect foot = GRect(2, b.size.h - 42, b.size.w - 4, 40);
+  GRect big = GRect(0, 50, b.size.w, 54);       // huge digits
+  GRect sub = GRect(2, 104, b.size.w - 4, 32);  // large secondary line
+  GRect foot = GRect(2, b.size.h - 24, b.size.w - 4, 22);
 
 #ifdef PBL_COLOR
   graphics_context_set_text_color(ctx, GColorDarkCandyAppleRed);
 #endif
   if (!cur_timed()) {
-    snprintf(buf, sizeof buf, "%d", s_counter);
-    draw_text(ctx, buf, FONT_KEY_BITHAM_42_BOLD, big);
+    // Work timer is the headline until the rep counter earns the big font.
+    snprintf(buf, sizeof buf, "%d:%02d", s_work_elapsed / 60, s_work_elapsed % 60);
+    draw_text(ctx, buf, FONT_HUGE_NUM, big);
     graphics_context_set_text_color(ctx, GColorBlack);
     if (cur_amrap()) {
-      draw_text(ctx, "AMRAP — count your reps\nselect = done", FONT_KEY_GOTHIC_18, foot);
+      snprintf(buf, sizeof buf, "reps %d", s_counter);
     } else {
-      snprintf(buf, sizeof buf, "target %d - auto count\nup/dn fix - select done", cur_set().target);
-      draw_text(ctx, buf, FONT_KEY_GOTHIC_18, foot);
+      snprintf(buf, sizeof buf, "reps %d / %d", s_counter, cur_set().target);
     }
+    draw_text(ctx, buf, FONT_KEY_GOTHIC_28_BOLD, sub);
+    draw_text(ctx, "select = done", FONT_KEY_GOTHIC_18, foot);
   } else if (s_hold_state == HOLD_IDLE) {
-    snprintf(buf, sizeof buf, "%d s", cur_set().target);
-    draw_text(ctx, buf, FONT_KEY_BITHAM_42_BOLD, big);
+    snprintf(buf, sizeof buf, "%d", cur_set().target);
+    draw_text(ctx, buf, FONT_HUGE_NUM, big);
     graphics_context_set_text_color(ctx, GColorBlack);
-    draw_text(ctx, "timed hold\nselect = start (3-2-1)", FONT_KEY_GOTHIC_18, foot);
+    draw_text(ctx, "second hold", FONT_KEY_GOTHIC_28_BOLD, sub);
+    draw_text(ctx, "select = start", FONT_KEY_GOTHIC_18, foot);
   } else if (s_hold_state == HOLD_LEADIN) {
     snprintf(buf, sizeof buf, "%d", s_leadin);
-    draw_text(ctx, buf, FONT_KEY_BITHAM_42_BOLD, big);
+    draw_text(ctx, buf, FONT_HUGE_NUM, big);
     graphics_context_set_text_color(ctx, GColorBlack);
-    draw_text(ctx, "get ready...", FONT_KEY_GOTHIC_18, foot);
+    draw_text(ctx, "get ready", FONT_KEY_GOTHIC_28_BOLD, sub);
   } else {
     snprintf(buf, sizeof buf, "%d", s_hold_remaining);
-    draw_text(ctx, buf, FONT_KEY_BITHAM_42_BOLD, big);
+    draw_text(ctx, buf, FONT_HUGE_NUM, big);
     graphics_context_set_text_color(ctx, GColorBlack);
-    draw_text(ctx, "hold!\nselect = end early", FONT_KEY_GOTHIC_18, foot);
+    draw_text(ctx, "hold!", FONT_KEY_GOTHIC_28_BOLD, sub);
+    draw_text(ctx, "select = end early", FONT_KEY_GOTHIC_18, foot);
   }
 }
 
 static void render_rest(GContext *ctx, GRect b) {
   char buf[48];
-  draw_text(ctx, "Rest", FONT_KEY_GOTHIC_24_BOLD, GRect(2, 0, b.size.w - 4, 30));
+  draw_text(ctx, "Rest", FONT_KEY_GOTHIC_24_BOLD, GRect(2, 0, b.size.w - 4, 28));
 
 #ifdef PBL_COLOR
   graphics_context_set_text_color(ctx, GColorDukeBlue);
 #endif
   snprintf(buf, sizeof buf, "%d:%02d", s_rest_remaining / 60, s_rest_remaining % 60);
-  draw_text(ctx, buf, FONT_KEY_BITHAM_42_BOLD, GRect(0, b.size.h / 2 - 32, b.size.w, 50));
+  draw_text(ctx, buf, FONT_HUGE_NUM, GRect(0, 26, b.size.w, 54));
   graphics_context_set_text_color(ctx, GColorBlack);
 
   // What's next after this rest.
@@ -296,25 +329,27 @@ static void render_rest(GContext *ctx, GRect b) {
   }
   if (nx < s_workout.exercise_count) {
     const PackExercise *e = &s_workout.exercises[nx];
-    snprintf(buf, sizeof buf, "next: %s %d/%d", movement_name(e->movement_id), ns + 1,
+    snprintf(buf, sizeof buf, "%s %d/%d", movement_name(e->movement_id), ns + 1,
              e->set_count);
-    draw_text(ctx, buf, FONT_KEY_GOTHIC_18, GRect(2, b.size.h - 60, b.size.w - 4, 20));
+    draw_text(ctx, buf, FONT_KEY_GOTHIC_24, GRect(2, 82, b.size.w - 4, 26));
   }
 
-  snprintf(buf, sizeof buf, "done: %d%s (fix up/dn)", s_actual[s_cur_ex][s_cur_set],
+  snprintf(buf, sizeof buf, "done: %d%s  up/dn", s_actual[s_cur_ex][s_cur_set],
            cur_timed() ? " s" : "");
-  draw_text(ctx, buf, FONT_KEY_GOTHIC_18, GRect(2, b.size.h - 40, b.size.w - 4, 38));
+  draw_text(ctx, buf, FONT_KEY_GOTHIC_24, GRect(2, 108, b.size.w - 4, 26));
+
+  draw_text(ctx, "select = go", FONT_KEY_GOTHIC_18,
+            GRect(2, b.size.h - 24, b.size.w - 4, 22));
 }
 
 static void render_summary(GContext *ctx, GRect b) {
   char buf[96];
-  uint32_t reps = 0, hold_s = 0, volume_q = 0;
+  uint32_t reps = 0, volume_q = 0, work_s = 0;
   for (uint8_t i = 0; i < s_workout.exercise_count; i++) {
     const PackExercise *e = &s_workout.exercises[i];
     for (uint8_t s = 0; s < e->set_count; s++) {
-      if (e->flags & PACK_FLAG_TIMED) {
-        hold_s += s_actual[i][s];
-      } else {
+      work_s += s_work_secs[i][s];
+      if (!(e->flags & PACK_FLAG_TIMED)) {
         reps += s_actual[i][s];
         volume_q += (uint32_t)s_actual[i][s] * e->weight_q;
       }
@@ -322,12 +357,14 @@ static void render_summary(GContext *ctx, GRect b) {
   }
   int dur = (int)(time(NULL) - s_started);
 
-  draw_text(ctx, "Done!", FONT_KEY_GOTHIC_28_BOLD, GRect(2, 4, b.size.w - 4, 32));
-  snprintf(buf, sizeof buf, "%d:%02d\n%lu reps, %lu s held\nvolume %lu kg", dur / 60,
-           dur % 60, (unsigned long)reps, (unsigned long)hold_s,
+  draw_text(ctx, "Done!", FONT_KEY_GOTHIC_28_BOLD, GRect(2, 2, b.size.w - 4, 32));
+  snprintf(buf, sizeof buf, "%d:%02d", dur / 60, dur % 60);
+  draw_text(ctx, buf, FONT_HUGE_NUM, GRect(0, 32, b.size.w, 54));
+  snprintf(buf, sizeof buf, "%lu reps\nwork %lu:%02lu   vol %lu kg", (unsigned long)reps,
+           (unsigned long)(work_s / 60), (unsigned long)(work_s % 60),
            (unsigned long)(volume_q / 4));
-  draw_text(ctx, buf, FONT_KEY_GOTHIC_24, GRect(2, 44, b.size.w - 4, 80));
-  draw_text(ctx, "select = finish", FONT_KEY_GOTHIC_18, GRect(2, b.size.h - 24, b.size.w - 4, 20));
+  draw_text(ctx, buf, FONT_KEY_GOTHIC_24, GRect(2, 88, b.size.w - 4, 56));
+  draw_text(ctx, "select = finish", FONT_KEY_GOTHIC_18, GRect(2, b.size.h - 24, b.size.w - 4, 22));
 }
 
 static void layer_update(Layer *layer, GContext *ctx) {
@@ -345,8 +382,13 @@ static void layer_update(Layer *layer, GContext *ctx) {
 
 // ---- Buttons ----
 
+// Correct the rep count, during the set or (more usefully) during rest — your
+// hands are busy mid-set, so rest is where corrections actually happen.
+// Locks the count so the untuned auto-counter can't overwrite the fix, which
+// is what previously made the buttons feel dead.
 static void adjust(int delta) {
   if (s_phase == PHASE_ACTIVE && !cur_timed()) {
+    s_count_locked = true;
     s_counter += delta;
     if (s_counter < 0) s_counter = 0;
     if (s_counter > 250) s_counter = 250;
@@ -480,6 +522,7 @@ static void window_unload(Window *window) {
 void session_window_push(const PackedWorkout *workout) {
   s_workout = *workout;
   memset(s_actual, 0, sizeof s_actual);
+  memset(s_work_secs, 0, sizeof s_work_secs);
   s_cur_ex = 0;
   s_cur_set = 0;
   s_started = time(NULL);
