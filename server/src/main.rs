@@ -79,6 +79,7 @@ async fn main() {
         .route("/", get(pages::home))
         .route("/bodyweight", post(pages::add_bodyweight))
         .route("/api/dashboard", get(api::dashboard))
+        .route("/static/fonts/{name}", get(pages::font))
         .route("/workouts", get(pages::workouts_page))
         .route("/workouts/new", get(pages::builder_new))
         .route("/workouts/{id}/edit", get(pages::builder_edit))

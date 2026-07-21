@@ -5,56 +5,129 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Strength{% endblock %}</title>
 <style>
-  :root { --accent: #d33; --ink: #1a1a1a; --muted: #777; --line: #e2e2e2; --bg: #fafafa; }
+  @font-face {
+    font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url("/static/fonts/inter-latin.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Press Start 2P"; font-style: normal; font-weight: 400; font-display: swap;
+    src: url("/static/fonts/pressstart2p-latin.woff2") format("woff2");
+  }
+
+  :root {
+    --accent: #e5484d; --accent-ink: #fff; --accent-soft: #fdecec;
+    --lcd: #5c6b3a;          /* olive "old LCD" ink, for pixel accents */
+    --ink: #1b1c19; --muted: #71766b; --line: #e6e7df;
+    --bg: #eceee6; --panel: #ffffff;
+    --radius: 16px; --radius-sm: 10px;
+    --shadow: 0 1px 2px rgba(20,22,16,.04), 0 6px 20px rgba(20,22,16,.05);
+    --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-pixel: "Press Start 2P", "Courier New", monospace;
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-         color: var(--ink); background: var(--bg); }
-  header { display: flex; align-items: center; gap: 1.2rem; padding: 0.8rem 1.2rem;
-           background: #fff; border-bottom: 1px solid var(--line); }
-  .brand { font-weight: 700; font-size: 1.1rem; color: var(--accent); text-decoration: none; }
-  nav { display: flex; gap: 1rem; align-items: center; flex: 1; }
-  nav a { color: var(--ink); text-decoration: none; }
-  nav a:hover { color: var(--accent); }
+  body {
+    margin: 0; color: var(--ink); font-family: var(--font-body);
+    font-size: 15px; line-height: 1.5; letter-spacing: -0.006em;
+    background-color: var(--bg);
+    /* subtle LCD pixel grid */
+    background-image:
+      linear-gradient(rgba(28,30,20,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(28,30,20,.035) 1px, transparent 1px);
+    background-size: 22px 22px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header {
+    display: flex; align-items: center; gap: 1.4rem; padding: 0.85rem 1.4rem;
+    background: rgba(255,255,255,.85); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 0.55rem;
+    font-family: var(--font-pixel); font-size: 0.72rem; color: var(--accent);
+    text-decoration: none; letter-spacing: 0;
+  }
+  .brand .dot { width: 10px; height: 10px; background: var(--accent);
+    box-shadow: 0 -4px 0 var(--accent), 4px 0 0 var(--lcd); } /* tiny pixel glyph */
+  nav { display: flex; gap: 1.1rem; align-items: center; flex: 1; }
+  nav a { color: var(--muted); text-decoration: none; font-weight: 500;
+    padding: 0.2rem 0; border-bottom: 2px solid transparent; transition: color .15s; }
+  nav a:hover { color: var(--ink); }
   nav form { margin-left: auto; }
-  main { max-width: 860px; margin: 1.5rem auto; padding: 0 1.2rem; }
-  h1 { font-size: 1.4rem; }
-  .card { background: #fff; border: 1px solid var(--line); border-radius: 8px;
-          padding: 1rem; margin-bottom: 0.8rem; }
-  .badge { display: inline-block; font-size: 0.75rem; padding: 0.1rem 0.5rem;
-           border-radius: 99px; background: #eee; color: #444; margin-left: 0.4rem; }
-  .badge.accent { background: #fde8e8; color: var(--accent); }
-  .muted { color: var(--muted); font-size: 0.9rem; }
-  button, .btn { font: inherit; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer;
-                 border: 1px solid var(--line); background: #fff; text-decoration: none;
-                 color: var(--ink); display: inline-block; }
-  button.primary, .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.small { padding: 0.15rem 0.5rem; font-size: 0.85rem; }
-  input[type=text], input[type=number], textarea, select {
-    font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--line); border-radius: 6px;
-    background: #fff; }
+
+  main { max-width: 900px; margin: 2rem auto; padding: 0 1.4rem; }
+  h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 1.2rem; }
+  h2 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+  .eyebrow { font-family: var(--font-pixel); font-size: 0.58rem; color: var(--muted);
+    letter-spacing: 0; text-transform: uppercase; display: block; margin-bottom: 0.5rem; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.35rem 1.5rem; margin-bottom: 1rem; box-shadow: var(--shadow);
+    animation: rise .32s cubic-bezier(.2,.7,.3,1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .badge {
+    display: inline-flex; align-items: center; font-family: var(--font-pixel);
+    font-size: 0.5rem; line-height: 1; padding: 0.42rem 0.55rem; border-radius: 6px;
+    background: #eef0e7; color: #565b4d; letter-spacing: 0; vertical-align: middle;
+  }
+  .badge.accent { background: var(--accent-soft); color: var(--accent); }
+  .muted { color: var(--muted); font-size: 0.92rem; }
+
+  button, .btn {
+    font: inherit; font-weight: 600; padding: 0.5rem 1rem; border-radius: var(--radius-sm);
+    cursor: pointer; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); text-decoration: none; display: inline-block; transition: all .15s;
+  }
+  button:hover, .btn:hover { border-color: #cfd2c6; transform: translateY(-1px); }
+  button.primary, .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button.primary:hover, .btn.primary:hover { background: #d23b40; }
+  button.small, .btn.small { padding: 0.28rem 0.6rem; font-size: 0.82rem; font-weight: 600; }
+
+  input[type=text], input[type=number], input[type=date], textarea, select {
+    font: inherit; padding: 0.5rem 0.6rem; border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--panel); color: var(--ink); }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft); }
   input[type=number] { width: 5.5rem; }
-  label { font-size: 0.9rem; }
-  .row { display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; margin: 0.5rem 0; }
+  label { font-size: 0.92rem; }
+  .row { display: flex; gap: 0.9rem; align-items: center; flex-wrap: wrap; margin: 0.6rem 0; }
   .error { color: var(--accent); margin: 0.5rem 0; }
-  pre.hex { background: #1a1a1a; color: #8f8; padding: 0.8rem; border-radius: 6px;
-            overflow-x: auto; font-size: 0.85rem; }
-  .tokenbox { background: #fffbe6; border: 1px solid #e6d87a; border-radius: 8px;
+  pre.hex { background: #14150f; color: #9bd06a; padding: 0.9rem; border-radius: var(--radius-sm);
+            overflow-x: auto; font-size: 0.82rem; }
+  .tokenbox { background: #fdfbe9; border: 1px solid #e6dd9a; border-radius: var(--radius);
               padding: 1rem; margin-bottom: 1rem; word-break: break-all; }
-  code { background: #f0f0f0; padding: 0.1rem 0.3rem; border-radius: 4px; }
-  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  code { background: #eceee6; padding: 0.1rem 0.35rem; border-radius: 5px; font-size: 0.9em; }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--panel); box-shadow: var(--shadow); }
   table.list { width: 100%; border-collapse: collapse; }
-  table.list th, table.list td { padding: 0.5rem 0.7rem; text-align: left; white-space: nowrap; }
-  table.list thead th { color: var(--muted); font-size: 0.72rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--line); }
+  table.list th, table.list td { padding: 0.65rem 0.9rem; text-align: left; white-space: nowrap; }
+  table.list thead th { font-family: var(--font-pixel); color: var(--muted); font-size: 0.5rem;
+    letter-spacing: 0; text-transform: uppercase; border-bottom: 1px solid var(--line); }
   table.list td.num, table.list th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  table.list tbody tr:nth-child(even) { background: #f6f6f6; }
-  table.list tbody tr:hover { background: #fdf0f0; }
   table.list td.action { text-align: right; }
+  table.list tbody tr { transition: background .12s; }
+  table.list tbody tr:nth-child(even) { background: #f6f7f1; }
+  table.list tbody tr:hover { background: var(--accent-soft); }
+
+  /* Pixel lifter mascot */
+  .lifter { image-rendering: pixelated; shape-rendering: crispEdges; }
+  .lifter-idle { animation: bob 2.6s ease-in-out infinite; transform-origin: center bottom; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+  .lifter-pb { animation: punch .5s steps(2) 3; }
+  @keyframes punch { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-8px) rotate(-4deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card, .lifter-idle, .lifter-pb { animation: none; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <a class="brand" href="/">Strength</a>
+  <a class="brand" href="/"><span class="dot"></span>STRENGTH</a>
   {% block nav %}{% endblock %}
 </header>
 <main>

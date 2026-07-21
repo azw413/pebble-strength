@@ -612,3 +612,22 @@ pub async fn session_detail_page(
     };
     Ok(Html(tpl.render()?))
 }
+
+/// Self-hosted fonts, embedded in the binary (no external CDN).
+pub async fn font(Path(name): Path<String>) -> axum::response::Response {
+    use axum::http::{header, StatusCode};
+    use axum::response::IntoResponse;
+    let bytes: &'static [u8] = match name.as_str() {
+        "inter-latin.woff2" => include_bytes!("../static/fonts/inter-latin.woff2"),
+        "pressstart2p-latin.woff2" => include_bytes!("../static/fonts/pressstart2p-latin.woff2"),
+        _ => return (StatusCode::NOT_FOUND, "not found").into_response(),
+    };
+    (
+        [
+            (header::CONTENT_TYPE, "font/woff2"),
+            (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+        ],
+        bytes,
+    )
+        .into_response()
+}

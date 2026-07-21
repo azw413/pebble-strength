@@ -177,6 +177,37 @@ pub fn dashboard_json(
         }
     }
 
+    // New PB: the selected exercise's best 1RM this window beats its best in
+    // every earlier session.
+    let is_pb = match (selected_ex, best_1rm) {
+        (Some(exm), Some(window_best)) => {
+            let prior: Vec<(chrono::NaiveDateTime, i32, Option<f32>)> = session_sets::table
+                .inner_join(sessions::table)
+                .filter(sessions::user_id.eq(user_id))
+                .filter(session_sets::movement_id.eq(exm))
+                .filter(session_sets::is_timed.eq(false))
+                .filter(sessions::performed_on.lt(start_dt))
+                .select((
+                    sessions::performed_on,
+                    session_sets::actual,
+                    session_sets::weight_kg,
+                ))
+                .load(conn)?;
+            let factor = factors.get(&exm).copied().unwrap_or(0.0);
+            let mut prior_best = 0.0f32;
+            for (pdate, reps, w) in prior {
+                if reps <= 0 {
+                    continue;
+                }
+                let load = bw_for(&bw_log, pdate.date()) * factor + w.unwrap_or(0.0);
+                let e = load * (1.0 + reps as f32 / 30.0);
+                prior_best = prior_best.max(e);
+            }
+            window_best > prior_best + 0.01
+        }
+        _ => false,
+    };
+
     let axis: Vec<serde_json::Value> = (0..bucket_count)
         .map(|i| {
             json!({
@@ -221,6 +252,7 @@ pub fn dashboard_json(
             "hold_secs": hold_secs,
             "bodyweight": bw_for(&bw_log, today),
             "has_bodyweight": !bw_log.is_empty(),
+            "pb": is_pb,
         }
     }))
 }
