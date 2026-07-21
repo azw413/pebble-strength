@@ -165,7 +165,9 @@ function renderChart(d) {
 }
 
 async function load() {
-  const res = await fetch(`/api/dashboard?window=${win}&offset=${offset}&ex=${ex}`);
+  const exq = ex ? `&ex=${ex}` : '';
+  const res = await fetch(`/api/dashboard?window=${win}&offset=${offset}${exq}`);
+  if (!res.ok) { document.getElementById('charthint').textContent = 'Error loading data: ' + await res.text(); return; }
   const d = await res.json();
   document.getElementById('period').textContent = d.label;
   document.getElementById('next').disabled = !d.can_next;

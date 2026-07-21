@@ -25,8 +25,16 @@ pub struct DashQuery {
     pub window: String,
     #[serde(default)]
     pub offset: i32,
+    /// Kept as a string so an empty `ex=` (sent before an exercise is picked)
+    /// parses as "none" rather than failing query deserialization.
     #[serde(default)]
-    pub ex: Option<i32>,
+    pub ex: Option<String>,
+}
+
+impl DashQuery {
+    fn exercise(&self) -> Option<i32> {
+        self.ex.as_deref().and_then(|s| s.trim().parse().ok())
+    }
 }
 
 fn default_window() -> String {
@@ -80,6 +88,7 @@ pub fn dashboard_json(
     user_id: i32,
     q: &DashQuery,
 ) -> Result<serde_json::Value, AppError> {
+    let selected_ex = q.exercise();
     let today = Utc::now().naive_utc().date();
     let (start, end, label) = window_bounds(&q.window, q.offset, today);
     let start_dt = start.and_hms_opt(0, 0, 0).unwrap();
@@ -129,7 +138,7 @@ pub fn dashboard_json(
             let factor = factors.get(&st.movement_id).copied().unwrap_or(0.0);
             let load = bw * factor + st.weight_kg.unwrap_or(0.0);
             vol += st.actual as f32 * load;
-            if Some(st.movement_id) == q.ex && st.actual > 0 {
+            if Some(st.movement_id) == selected_ex && st.actual > 0 {
                 let e1rm = load * (1.0 + st.actual as f32 / 30.0);
                 sess_1rm = Some(sess_1rm.map_or(e1rm, |b: f32| b.max(e1rm)));
             }
@@ -170,7 +179,7 @@ pub fn dashboard_json(
         "offset": q.offset,
         "label": label,
         "can_next": q.offset < 0,
-        "selected_exercise": q.ex,
+        "selected_exercise": selected_ex,
         "exercises": exercises_json,
         "sessions": bars,
         "insights": {
