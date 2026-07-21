@@ -496,7 +496,7 @@ pub async fn sessions_page(
                     } else {
                         s.workout_name.clone()
                     },
-                    date: s.performed_on.format("%Y-%m-%d").to_string(),
+                    date: s.performed_on.format("%A %Y-%m-%d").to_string(),
                     exercises: movements.len(),
                     sets: mine.len(),
                     reps: mine.iter().filter(|r| !r.3).map(|r| r.2).sum(),

@@ -18,17 +18,15 @@
 the watch. Open one to correct reps, hold times, weights, or add/remove sets.</p>
 
 {% for r in rows %}
-<div class="card">
-  <a href="/sessions/{{ r.id }}" style="text-decoration:none;color:inherit">
-    <strong>{{ r.name }}</strong>
-    <span class="badge accent">{{ r.date }}</span>
-    <span class="badge">{{ r.exercises }} exercises</span>
-    <span class="badge">{{ r.sets }} sets</span>
-    {% if r.reps > 0 %}<span class="badge">{{ r.reps }} reps</span>{% endif %}
-    {% if r.hold_secs > 0 %}<span class="badge">{{ r.hold_secs }} s held</span>{% endif %}
-    {% if r.work_secs > 0 %}<span class="badge">{{ r.work_secs }} s work</span>{% endif %}
-    <span class="btn" style="float:right">Edit</span>
-  </a>
+<div class="card" style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
+  <strong>{{ r.date }}</strong>
+  <span class="badge accent">{{ r.name }}</span>
+  <span class="badge">{{ r.exercises }} exercises</span>
+  <span class="badge">{{ r.sets }} sets</span>
+  {% if r.reps > 0 %}<span class="badge">{{ r.reps }} reps</span>{% endif %}
+  {% if r.hold_secs > 0 %}<span class="badge">{{ r.hold_secs }} s held</span>{% endif %}
+  {% if r.work_secs > 0 %}<span class="badge">{{ r.work_secs }} s work</span>{% endif %}
+  <a class="btn" href="/sessions/{{ r.id }}" style="margin-left:auto">Edit</a>
 </div>
 {% endfor %}
 
