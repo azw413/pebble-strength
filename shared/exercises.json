@@ -1,53 +1,685 @@
 {
   "comment": "Canonical exercise seed. Server seeds its DB from this; the watch build generates its movement table from it. watch_movement_id is the u8 in the packed format and must never be reused.",
   "exercises": [
-    { "id": 0,  "name": "Custom",             "body_area": "other",     "primary_muscles": [],                          "secondary_muscles": [] },
-    { "id": 1,  "name": "Bench Press",        "body_area": "chest",     "primary_muscles": ["pecs"],                    "secondary_muscles": ["triceps", "front delts"] },
-    { "id": 2,  "name": "Incline Press",      "body_area": "chest",     "primary_muscles": ["upper pecs"],              "secondary_muscles": ["triceps", "front delts"] },
-    { "id": 3,  "name": "Overhead Press",     "body_area": "shoulders", "primary_muscles": ["delts"],                   "secondary_muscles": ["triceps", "upper traps"] },
-    { "id": 4,  "name": "Push-up",            "body_area": "chest",     "primary_muscles": ["pecs"],                    "secondary_muscles": ["triceps", "core"] },
-    { "id": 5,  "name": "Dip",                "body_area": "chest",     "primary_muscles": ["lower pecs", "triceps"],   "secondary_muscles": ["front delts"] },
-    { "id": 6,  "name": "Lateral Raise",      "body_area": "shoulders", "primary_muscles": ["side delts"],              "secondary_muscles": [], "profile": { "min_rep_ms": 800 } },
-    { "id": 7,  "name": "Biceps Curl",        "body_area": "arms",      "primary_muscles": ["biceps"],                  "secondary_muscles": ["forearms"], "profile": { "min_rep_ms": 700 } },
-    { "id": 8,  "name": "Hammer Curl",        "body_area": "arms",      "primary_muscles": ["biceps", "brachialis"],    "secondary_muscles": ["forearms"], "profile": { "min_rep_ms": 700 } },
-    { "id": 9,  "name": "Triceps Extension",  "body_area": "arms",      "primary_muscles": ["triceps"],                 "secondary_muscles": [], "profile": { "min_rep_ms": 700 } },
-    { "id": 10, "name": "Triceps Pushdown",   "body_area": "arms",      "primary_muscles": ["triceps"],                 "secondary_muscles": [], "profile": { "min_rep_ms": 700 } },
-    { "id": 11, "name": "Barbell Row",        "body_area": "back",      "primary_muscles": ["lats", "rhomboids"],       "secondary_muscles": ["biceps", "rear delts"] },
-    { "id": 12, "name": "Dumbbell Row",       "body_area": "back",      "primary_muscles": ["lats", "rhomboids"],       "secondary_muscles": ["biceps", "rear delts"] },
-    { "id": 13, "name": "Lat Pulldown",       "body_area": "back",      "primary_muscles": ["lats"],                    "secondary_muscles": ["biceps"] },
-    { "id": 14, "name": "Pull-up",            "body_area": "back",      "primary_muscles": ["lats"],                    "secondary_muscles": ["biceps", "core"], "profile": { "min_rep_ms": 1100 } },
-    { "id": 15, "name": "Chin-up",            "body_area": "back",      "primary_muscles": ["lats", "biceps"],          "secondary_muscles": ["core"], "profile": { "min_rep_ms": 1100 } },
-    { "id": 16, "name": "Shrug",              "body_area": "back",      "primary_muscles": ["traps"],                   "secondary_muscles": ["forearms"], "profile": { "min_rep_ms": 700 } },
-    { "id": 17, "name": "Deadlift",           "body_area": "legs",      "primary_muscles": ["hamstrings", "glutes"],    "secondary_muscles": ["erectors", "traps", "forearms"], "profile": { "min_rep_ms": 1200 } },
-    { "id": 18, "name": "Romanian Deadlift",  "body_area": "legs",      "primary_muscles": ["hamstrings", "glutes"],    "secondary_muscles": ["erectors"], "profile": { "min_rep_ms": 1100 } },
-    { "id": 19, "name": "Squat",              "body_area": "legs",      "primary_muscles": ["quads", "glutes"],         "secondary_muscles": ["erectors", "core"], "profile": { "min_rep_ms": 1100 } },
-    { "id": 20, "name": "Front Squat",        "body_area": "legs",      "primary_muscles": ["quads"],                   "secondary_muscles": ["glutes", "core"], "profile": { "min_rep_ms": 1100 } },
-    { "id": 21, "name": "Goblet Squat",       "body_area": "legs",      "primary_muscles": ["quads", "glutes"],         "secondary_muscles": ["core"], "profile": { "min_rep_ms": 1000 } },
-    { "id": 22, "name": "Lunge",              "body_area": "legs",      "primary_muscles": ["quads", "glutes"],         "secondary_muscles": ["hamstrings"], "profile": { "min_rep_ms": 1000 } },
-    { "id": 23, "name": "Leg Press",          "body_area": "legs",      "primary_muscles": ["quads", "glutes"],         "secondary_muscles": ["hamstrings"] },
-    { "id": 24, "name": "Leg Curl",           "body_area": "legs",      "primary_muscles": ["hamstrings"],              "secondary_muscles": [] },
-    { "id": 25, "name": "Leg Extension",      "body_area": "legs",      "primary_muscles": ["quads"],                   "secondary_muscles": [] },
-    { "id": 26, "name": "Calf Raise",         "body_area": "legs",      "primary_muscles": ["calves"],                  "secondary_muscles": [], "profile": { "min_rep_ms": 600 } },
-    { "id": 27, "name": "Hip Thrust",         "body_area": "legs",      "primary_muscles": ["glutes"],                  "secondary_muscles": ["hamstrings"] },
-    { "id": 28, "name": "Kettlebell Swing",   "body_area": "legs",      "primary_muscles": ["glutes", "hamstrings"],    "secondary_muscles": ["erectors", "shoulders"], "profile": { "min_rep_ms": 600 } },
-    { "id": 29, "name": "Crunch",             "body_area": "core",      "primary_muscles": ["abs"],                     "secondary_muscles": [], "profile": { "min_rep_ms": 700 } },
-    { "id": 30, "name": "Plank",              "body_area": "core",      "primary_muscles": ["core"],                    "secondary_muscles": ["shoulders"], "default_timed": true },
-    { "id": 31, "name": "L-sit",              "body_area": "core",      "primary_muscles": ["core", "hip flexors"],     "secondary_muscles": ["triceps"], "default_timed": true },
-    { "id": 32, "name": "Russian Twist",      "body_area": "core",      "primary_muscles": ["obliques"],                "secondary_muscles": ["abs"], "profile": { "min_rep_ms": 600 } },
-    { "id": 33, "name": "Face Pull",          "body_area": "shoulders", "primary_muscles": ["rear delts"],              "secondary_muscles": ["traps", "rhomboids"], "profile": { "min_rep_ms": 800 } },
-    { "id": 34, "name": "Ring Row",           "body_area": "back",      "primary_muscles": ["lats", "rhomboids"],       "secondary_muscles": ["biceps", "rear delts", "core"] },
-    { "id": 35, "name": "Ring Support Hold",  "body_area": "shoulders", "primary_muscles": ["delts", "triceps"],        "secondary_muscles": ["core", "forearms"], "default_timed": true },
-    { "id": 36, "name": "Pike Push-up",       "body_area": "shoulders", "primary_muscles": ["delts"],                   "secondary_muscles": ["triceps", "upper pecs"] },
-    { "id": 37, "name": "Hollow-body Hold",   "body_area": "core",      "primary_muscles": ["abs", "hip flexors"],      "secondary_muscles": [], "default_timed": true },
-    { "id": 38, "name": "Dead Bug",           "body_area": "core",      "primary_muscles": ["abs"],                     "secondary_muscles": ["hip flexors"], "profile": { "min_rep_ms": 1200 } },
-    { "id": 39, "name": "Tuck Front Lever",   "body_area": "core",      "primary_muscles": ["lats", "core"],            "secondary_muscles": ["shoulders"], "default_timed": true },
-    { "id": 40, "name": "German Hang",        "body_area": "shoulders", "primary_muscles": ["shoulders"],               "secondary_muscles": ["chest", "biceps"], "default_timed": true },
-    { "id": 41, "name": "Bulgarian Split Squat", "body_area": "legs",   "primary_muscles": ["quads", "glutes"],         "secondary_muscles": ["hamstrings"], "profile": { "min_rep_ms": 1000 } },
-    { "id": 42, "name": "Dead Hang",          "body_area": "back",      "primary_muscles": ["forearms", "grip"],        "secondary_muscles": ["lats", "shoulders"], "default_timed": true },
-    { "id": 43, "name": "Planche Lean",       "body_area": "shoulders", "primary_muscles": ["front delts", "core"],     "secondary_muscles": ["wrists", "chest"], "default_timed": true },
-    { "id": 44, "name": "Pseudo-planche Push-up", "body_area": "chest", "primary_muscles": ["pecs", "front delts"],     "secondary_muscles": ["triceps", "core"], "profile": { "min_rep_ms": 1000 } },
-    { "id": 45, "name": "Hollow Rock",        "body_area": "core",      "primary_muscles": ["abs"],                     "secondary_muscles": ["hip flexors"], "profile": { "min_rep_ms": 600 } },
-    { "id": 46, "name": "Side Plank",         "body_area": "core",      "primary_muscles": ["obliques"],                "secondary_muscles": ["shoulders"], "default_timed": true },
-    { "id": 47, "name": "Pistol Squat",       "body_area": "legs",      "primary_muscles": ["quads", "glutes"],         "secondary_muscles": ["core"], "profile": { "min_rep_ms": 1200 } }
+    {
+      "id": 0,
+      "name": "Custom",
+      "body_area": "other",
+      "primary_muscles": [],
+      "secondary_muscles": [],
+      "load_factor": 0.0
+    },
+    {
+      "id": 1,
+      "name": "Bench Press",
+      "body_area": "chest",
+      "primary_muscles": [
+        "pecs"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "front delts"
+      ],
+      "load_factor": 0.0
+    },
+    {
+      "id": 2,
+      "name": "Incline Press",
+      "body_area": "chest",
+      "primary_muscles": [
+        "upper pecs"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "front delts"
+      ],
+      "load_factor": 0.0
+    },
+    {
+      "id": 3,
+      "name": "Overhead Press",
+      "body_area": "shoulders",
+      "primary_muscles": [
+        "delts"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "upper traps"
+      ],
+      "load_factor": 0.0
+    },
+    {
+      "id": 4,
+      "name": "Push-up",
+      "body_area": "chest",
+      "primary_muscles": [
+        "pecs"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "core"
+      ],
+      "load_factor": 0.64
+    },
+    {
+      "id": 5,
+      "name": "Dip",
+      "body_area": "chest",
+      "primary_muscles": [
+        "lower pecs",
+        "triceps"
+      ],
+      "secondary_muscles": [
+        "front delts"
+      ],
+      "load_factor": 0.95
+    },
+    {
+      "id": 6,
+      "name": "Lateral Raise",
+      "body_area": "shoulders",
+      "primary_muscles": [
+        "side delts"
+      ],
+      "secondary_muscles": [],
+      "profile": {
+        "min_rep_ms": 800
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 7,
+      "name": "Biceps Curl",
+      "body_area": "arms",
+      "primary_muscles": [
+        "biceps"
+      ],
+      "secondary_muscles": [
+        "forearms"
+      ],
+      "profile": {
+        "min_rep_ms": 700
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 8,
+      "name": "Hammer Curl",
+      "body_area": "arms",
+      "primary_muscles": [
+        "biceps",
+        "brachialis"
+      ],
+      "secondary_muscles": [
+        "forearms"
+      ],
+      "profile": {
+        "min_rep_ms": 700
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 9,
+      "name": "Triceps Extension",
+      "body_area": "arms",
+      "primary_muscles": [
+        "triceps"
+      ],
+      "secondary_muscles": [],
+      "profile": {
+        "min_rep_ms": 700
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 10,
+      "name": "Triceps Pushdown",
+      "body_area": "arms",
+      "primary_muscles": [
+        "triceps"
+      ],
+      "secondary_muscles": [],
+      "profile": {
+        "min_rep_ms": 700
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 11,
+      "name": "Barbell Row",
+      "body_area": "back",
+      "primary_muscles": [
+        "lats",
+        "rhomboids"
+      ],
+      "secondary_muscles": [
+        "biceps",
+        "rear delts"
+      ],
+      "load_factor": 0.0
+    },
+    {
+      "id": 12,
+      "name": "Dumbbell Row",
+      "body_area": "back",
+      "primary_muscles": [
+        "lats",
+        "rhomboids"
+      ],
+      "secondary_muscles": [
+        "biceps",
+        "rear delts"
+      ],
+      "load_factor": 0.0
+    },
+    {
+      "id": 13,
+      "name": "Lat Pulldown",
+      "body_area": "back",
+      "primary_muscles": [
+        "lats"
+      ],
+      "secondary_muscles": [
+        "biceps"
+      ],
+      "load_factor": 0.0
+    },
+    {
+      "id": 14,
+      "name": "Pull-up",
+      "body_area": "back",
+      "primary_muscles": [
+        "lats"
+      ],
+      "secondary_muscles": [
+        "biceps",
+        "core"
+      ],
+      "profile": {
+        "min_rep_ms": 1100
+      },
+      "load_factor": 1.0
+    },
+    {
+      "id": 15,
+      "name": "Chin-up",
+      "body_area": "back",
+      "primary_muscles": [
+        "lats",
+        "biceps"
+      ],
+      "secondary_muscles": [
+        "core"
+      ],
+      "profile": {
+        "min_rep_ms": 1100
+      },
+      "load_factor": 1.0
+    },
+    {
+      "id": 16,
+      "name": "Shrug",
+      "body_area": "back",
+      "primary_muscles": [
+        "traps"
+      ],
+      "secondary_muscles": [
+        "forearms"
+      ],
+      "profile": {
+        "min_rep_ms": 700
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 17,
+      "name": "Deadlift",
+      "body_area": "legs",
+      "primary_muscles": [
+        "hamstrings",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "erectors",
+        "traps",
+        "forearms"
+      ],
+      "profile": {
+        "min_rep_ms": 1200
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 18,
+      "name": "Romanian Deadlift",
+      "body_area": "legs",
+      "primary_muscles": [
+        "hamstrings",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "erectors"
+      ],
+      "profile": {
+        "min_rep_ms": 1100
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 19,
+      "name": "Squat",
+      "body_area": "legs",
+      "primary_muscles": [
+        "quads",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "erectors",
+        "core"
+      ],
+      "profile": {
+        "min_rep_ms": 1100
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 20,
+      "name": "Front Squat",
+      "body_area": "legs",
+      "primary_muscles": [
+        "quads"
+      ],
+      "secondary_muscles": [
+        "glutes",
+        "core"
+      ],
+      "profile": {
+        "min_rep_ms": 1100
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 21,
+      "name": "Goblet Squat",
+      "body_area": "legs",
+      "primary_muscles": [
+        "quads",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "core"
+      ],
+      "profile": {
+        "min_rep_ms": 1000
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 22,
+      "name": "Lunge",
+      "body_area": "legs",
+      "primary_muscles": [
+        "quads",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "hamstrings"
+      ],
+      "profile": {
+        "min_rep_ms": 1000
+      },
+      "load_factor": 0.65
+    },
+    {
+      "id": 23,
+      "name": "Leg Press",
+      "body_area": "legs",
+      "primary_muscles": [
+        "quads",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "hamstrings"
+      ],
+      "load_factor": 0.0
+    },
+    {
+      "id": 24,
+      "name": "Leg Curl",
+      "body_area": "legs",
+      "primary_muscles": [
+        "hamstrings"
+      ],
+      "secondary_muscles": [],
+      "load_factor": 0.0
+    },
+    {
+      "id": 25,
+      "name": "Leg Extension",
+      "body_area": "legs",
+      "primary_muscles": [
+        "quads"
+      ],
+      "secondary_muscles": [],
+      "load_factor": 0.0
+    },
+    {
+      "id": 26,
+      "name": "Calf Raise",
+      "body_area": "legs",
+      "primary_muscles": [
+        "calves"
+      ],
+      "secondary_muscles": [],
+      "profile": {
+        "min_rep_ms": 600
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 27,
+      "name": "Hip Thrust",
+      "body_area": "legs",
+      "primary_muscles": [
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "hamstrings"
+      ],
+      "load_factor": 0.0
+    },
+    {
+      "id": 28,
+      "name": "Kettlebell Swing",
+      "body_area": "legs",
+      "primary_muscles": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondary_muscles": [
+        "erectors",
+        "shoulders"
+      ],
+      "profile": {
+        "min_rep_ms": 600
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 29,
+      "name": "Crunch",
+      "body_area": "core",
+      "primary_muscles": [
+        "abs"
+      ],
+      "secondary_muscles": [],
+      "profile": {
+        "min_rep_ms": 700
+      },
+      "load_factor": 0.3
+    },
+    {
+      "id": 30,
+      "name": "Plank",
+      "body_area": "core",
+      "primary_muscles": [
+        "core"
+      ],
+      "secondary_muscles": [
+        "shoulders"
+      ],
+      "default_timed": true,
+      "load_factor": 0.0
+    },
+    {
+      "id": 31,
+      "name": "L-sit",
+      "body_area": "core",
+      "primary_muscles": [
+        "core",
+        "hip flexors"
+      ],
+      "secondary_muscles": [
+        "triceps"
+      ],
+      "default_timed": true,
+      "load_factor": 0.0
+    },
+    {
+      "id": 32,
+      "name": "Russian Twist",
+      "body_area": "core",
+      "primary_muscles": [
+        "obliques"
+      ],
+      "secondary_muscles": [
+        "abs"
+      ],
+      "profile": {
+        "min_rep_ms": 600
+      },
+      "load_factor": 0.3
+    },
+    {
+      "id": 33,
+      "name": "Face Pull",
+      "body_area": "shoulders",
+      "primary_muscles": [
+        "rear delts"
+      ],
+      "secondary_muscles": [
+        "traps",
+        "rhomboids"
+      ],
+      "profile": {
+        "min_rep_ms": 800
+      },
+      "load_factor": 0.0
+    },
+    {
+      "id": 34,
+      "name": "Ring Row",
+      "body_area": "back",
+      "primary_muscles": [
+        "lats",
+        "rhomboids"
+      ],
+      "secondary_muscles": [
+        "biceps",
+        "rear delts",
+        "core"
+      ],
+      "load_factor": 0.55
+    },
+    {
+      "id": 35,
+      "name": "Ring Support Hold",
+      "body_area": "shoulders",
+      "primary_muscles": [
+        "delts",
+        "triceps"
+      ],
+      "secondary_muscles": [
+        "core",
+        "forearms"
+      ],
+      "default_timed": true,
+      "load_factor": 0.0
+    },
+    {
+      "id": 36,
+      "name": "Pike Push-up",
+      "body_area": "shoulders",
+      "primary_muscles": [
+        "delts"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "upper pecs"
+      ],
+      "load_factor": 0.66
+    },
+    {
+      "id": 37,
+      "name": "Hollow-body Hold",
+      "body_area": "core",
+      "primary_muscles": [
+        "abs",
+        "hip flexors"
+      ],
+      "secondary_muscles": [],
+      "default_timed": true,
+      "load_factor": 0.0
+    },
+    {
+      "id": 38,
+      "name": "Dead Bug",
+      "body_area": "core",
+      "primary_muscles": [
+        "abs"
+      ],
+      "secondary_muscles": [
+        "hip flexors"
+      ],
+      "profile": {
+        "min_rep_ms": 1200
+      },
+      "load_factor": 0.2
+    },
+    {
+      "id": 39,
+      "name": "Tuck Front Lever",
+      "body_area": "core",
+      "primary_muscles": [
+        "lats",
+        "core"
+      ],
+      "secondary_muscles": [
+        "shoulders"
+      ],
+      "default_timed": true,
+      "load_factor": 0.0
+    },
+    {
+      "id": 40,
+      "name": "German Hang",
+      "body_area": "shoulders",
+      "primary_muscles": [
+        "shoulders"
+      ],
+      "secondary_muscles": [
+        "chest",
+        "biceps"
+      ],
+      "default_timed": true,
+      "load_factor": 0.0
+    },
+    {
+      "id": 41,
+      "name": "Bulgarian Split Squat",
+      "body_area": "legs",
+      "primary_muscles": [
+        "quads",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "hamstrings"
+      ],
+      "profile": {
+        "min_rep_ms": 1000
+      },
+      "load_factor": 0.85
+    },
+    {
+      "id": 42,
+      "name": "Dead Hang",
+      "body_area": "back",
+      "primary_muscles": [
+        "forearms",
+        "grip"
+      ],
+      "secondary_muscles": [
+        "lats",
+        "shoulders"
+      ],
+      "default_timed": true,
+      "load_factor": 0.0
+    },
+    {
+      "id": 43,
+      "name": "Planche Lean",
+      "body_area": "shoulders",
+      "primary_muscles": [
+        "front delts",
+        "core"
+      ],
+      "secondary_muscles": [
+        "wrists",
+        "chest"
+      ],
+      "default_timed": true,
+      "load_factor": 0.0
+    },
+    {
+      "id": 44,
+      "name": "Pseudo-planche Push-up",
+      "body_area": "chest",
+      "primary_muscles": [
+        "pecs",
+        "front delts"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "core"
+      ],
+      "profile": {
+        "min_rep_ms": 1000
+      },
+      "load_factor": 0.75
+    },
+    {
+      "id": 45,
+      "name": "Hollow Rock",
+      "body_area": "core",
+      "primary_muscles": [
+        "abs"
+      ],
+      "secondary_muscles": [
+        "hip flexors"
+      ],
+      "profile": {
+        "min_rep_ms": 600
+      },
+      "load_factor": 0.3
+    },
+    {
+      "id": 46,
+      "name": "Side Plank",
+      "body_area": "core",
+      "primary_muscles": [
+        "obliques"
+      ],
+      "secondary_muscles": [
+        "shoulders"
+      ],
+      "default_timed": true,
+      "load_factor": 0.0
+    },
+    {
+      "id": 47,
+      "name": "Pistol Squat",
+      "body_area": "legs",
+      "primary_muscles": [
+        "quads",
+        "glutes"
+      ],
+      "secondary_muscles": [
+        "core"
+      ],
+      "profile": {
+        "min_rep_ms": 1200
+      },
+      "load_factor": 0.9
+    }
   ]
 }

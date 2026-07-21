@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
 use serde::Serialize;
 
@@ -39,6 +39,7 @@ pub struct Exercise {
     pub profile_min_rep_ms: i32,
     pub profile_smoothing: i32,
     pub is_builtin: bool,
+    pub load_factor: f32,
 }
 
 #[derive(Queryable, Identifiable, Clone, Debug)]
@@ -101,4 +102,14 @@ pub struct SessionSet {
     pub work_secs: Option<i32>,
     pub recording_id: Option<i32>,
     pub performed_at: NaiveDateTime,
+}
+
+#[derive(Queryable, Identifiable, Clone, Debug, Serialize)]
+#[diesel(table_name = bodyweights)]
+pub struct Bodyweight {
+    pub id: i32,
+    pub user_id: i32,
+    pub measured_on: NaiveDate,
+    pub weight_kg: f32,
+    pub created_at: NaiveDateTime,
 }

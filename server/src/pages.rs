@@ -5,10 +5,10 @@ use axum::Form;
 use diesel::prelude::*;
 use serde::Deserialize;
 
-use crate::auth::{self, CurrentUser};
+use crate::auth::{self, CurrentUser, OptionalUser};
 use crate::error::AppError;
 use crate::models::{Device, Exercise, Workout};
-use crate::schema::{devices, exercises, workouts};
+use crate::schema::{bodyweights, devices, exercises, workouts};
 use crate::{db, pack, workouts as wk, AppState};
 
 /// serde_json → string safe to inline inside a <script> block.
@@ -24,12 +24,92 @@ struct LandingTemplate {
     dev_login: bool,
 }
 
-pub async fn landing(State(state): State<AppState>) -> Result<Html<String>, AppError> {
-    let tpl = LandingTemplate {
-        google_enabled: state.cfg.google_client_id.is_some(),
-        dev_login: state.cfg.dev_login,
+pub struct BwRow {
+    pub date: String,
+    pub weight: String,
+}
+
+#[derive(Template)]
+#[template(path = "dashboard.html")]
+struct DashboardTemplate {
+    user_name: String,
+    today: String,
+    bodyweights: Vec<BwRow>,
+}
+
+/// Home: the dashboard when logged in, otherwise the landing page.
+pub async fn home(
+    State(state): State<AppState>,
+    OptionalUser(user): OptionalUser,
+) -> Result<Html<String>, AppError> {
+    let Some(user) = user else {
+        let tpl = LandingTemplate {
+            google_enabled: state.cfg.google_client_id.is_some(),
+            dev_login: state.cfg.dev_login,
+        };
+        return Ok(Html(tpl.render()?));
     };
+
+    let user_name = if user.display_name.is_empty() {
+        user.email.clone()
+    } else {
+        user.display_name.clone()
+    };
+    let bodyweights = db::run(&state.pool, move |conn| {
+        let rows: Vec<(chrono::NaiveDate, f32)> = bodyweights::table
+            .filter(bodyweights::user_id.eq(user.id))
+            .order(bodyweights::measured_on.desc())
+            .limit(8)
+            .select((bodyweights::measured_on, bodyweights::weight_kg))
+            .load(conn)?;
+        Ok(rows
+            .into_iter()
+            .map(|(d, w)| BwRow {
+                date: d.format("%Y-%m-%d").to_string(),
+                weight: format!("{w}"),
+            })
+            .collect::<Vec<_>>())
+    })
+    .await?;
+
+    let today = chrono::Utc::now().naive_utc().date().format("%Y-%m-%d").to_string();
+    let tpl = DashboardTemplate { user_name, today, bodyweights };
     Ok(Html(tpl.render()?))
+}
+
+#[derive(Deserialize)]
+pub struct BwForm {
+    measured_on: String,
+    weight_kg: f32,
+}
+
+/// Add (or replace) a bodyweight entry for a date.
+pub async fn add_bodyweight(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Form(form): Form<BwForm>,
+) -> Result<Redirect, AppError> {
+    let date = chrono::NaiveDate::parse_from_str(form.measured_on.trim(), "%Y-%m-%d")
+        .map_err(|e| AppError::BadRequest(format!("bad date: {e}")))?;
+    let weight = form.weight_kg;
+    db::run(&state.pool, move |conn| {
+        diesel::delete(
+            bodyweights::table
+                .filter(bodyweights::user_id.eq(user.id))
+                .filter(bodyweights::measured_on.eq(date)),
+        )
+        .execute(conn)?;
+        diesel::insert_into(bodyweights::table)
+            .values((
+                bodyweights::user_id.eq(user.id),
+                bodyweights::measured_on.eq(date),
+                bodyweights::weight_kg.eq(weight),
+            ))
+            .execute(conn)?;
+        Ok(())
+    })
+    .await?;
+    Ok(Redirect::to("/"))
 }
 
 pub struct WorkoutCard {

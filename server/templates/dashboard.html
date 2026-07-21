@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Home — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/sessions">Sessions</a>
+  <a href="/recordings">Recordings</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1>Hi, {{ user_name }}</h1>
+
+<div id="insights" class="row"></div>
+
+<div class="card">
+  <div class="row">
+    <span class="muted">Show</span>
+    <button class="small" data-window="week">Week</button>
+    <button class="small" data-window="month">Month</button>
+    <button class="small" data-window="year">Year</button>
+    <span style="flex:1"></span>
+    <button class="small" id="prev">‹ Prev</button>
+    <strong id="period"></strong>
+    <button class="small" id="next">Next ›</button>
+  </div>
+  <div class="row">
+    <label>1RM line for
+      <select id="expick"><option value="">—</option></select>
+    </label>
+  </div>
+  <svg id="chart" viewBox="0 0 680 300" style="width:100%;height:auto;font:11px sans-serif"></svg>
+  <div class="muted" id="charthint"></div>
+</div>
+
+<div class="card">
+  <h2 style="font-size:1.1rem;margin-top:0">Bodyweight</h2>
+  <p class="muted" style="margin-top:0">Used to load calisthenics volume &amp; 1RM
+  (each session uses the nearest-dated entry).</p>
+  <form method="post" action="/bodyweight" class="row">
+    <label>Date <input type="date" name="measured_on" value="{{ today }}" required></label>
+    <label>Weight <input type="number" name="weight_kg" step="0.1" min="20" max="300" placeholder="kg" required></label>
+    <button class="primary small">Add</button>
+  </form>
+  {% if bodyweights.is_empty() %}
+  <p class="muted">No bodyweight logged yet — calisthenics load assumes 75 kg until you add one.</p>
+  {% else %}
+  <p class="muted">Recent:
+    {% for b in bodyweights %}<span class="badge">{{ b.date }}: {{ b.weight }} kg</span>{% endfor %}
+  </p>
+  {% endif %}
+</div>
+
+<script>
+const SVGNS = 'http://www.w3.org/2000/svg';
+let win = 'month', offset = 0, ex = '';
+
+function svg(tag, attrs, text) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+function fmt(n) { return Math.round(n).toLocaleString(); }
+
+function card(label, value, sub) {
+  const c = document.createElement('div');
+  c.className = 'card';
+  c.style.cssText = 'flex:1;min-width:120px;margin:0';
+  c.appendChild(Object.assign(document.createElement('div'), { className: 'muted', textContent: label }));
+  const v = document.createElement('div');
+  v.style.cssText = 'font-size:1.5rem;font-weight:700';
+  v.textContent = value;
+  c.appendChild(v);
+  if (sub) c.appendChild(Object.assign(document.createElement('div'), { className: 'muted', textContent: sub }));
+  return c;
+}
+
+function renderInsights(d) {
+  const box = document.getElementById('insights');
+  box.innerHTML = '';
+  const ins = d.insights;
+  box.appendChild(card('Volume', fmt(ins.total_volume), 'kg·reps'));
+  box.appendChild(card('Sessions', ins.session_count, ''));
+  box.appendChild(card('Best 1RM', ins.best_1rm != null ? fmt(ins.best_1rm) + ' kg' : '—', exName()));
+  box.appendChild(card('Time held', ins.hold_secs + ' s', ''));
+  box.appendChild(card('Bodyweight', ins.bodyweight + ' kg', ins.has_bodyweight ? '' : 'default'));
+}
+
+function exName() {
+  const sel = document.getElementById('expick');
+  return sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].text : '';
+}
+
+function renderChart(d) {
+  const svgEl = document.getElementById('chart');
+  svgEl.innerHTML = '';
+  const W = 680, H = 300, m = { t: 20, r: 48, b: 46, l: 52 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const S = d.sessions;
+  document.getElementById('charthint').textContent =
+    S.length ? 'Bars: session volume. Line: estimated 1RM' + (exName() ? ' for ' + exName() : '') + '.'
+             : '';
+  if (!S.length) {
+    svgEl.appendChild(svg('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', fill: '#777' },
+      'No sessions in this period.'));
+    return;
+  }
+  const maxVol = Math.max(1, ...S.map(s => s.volume));
+  const rmVals = S.map(s => s.one_rm).filter(v => v != null);
+  const maxRm = rmVals.length ? Math.max(...rmVals) : 0;
+
+  // axes
+  svgEl.appendChild(svg('line', { x1: m.l, y1: m.t, x2: m.l, y2: m.t + ih, stroke: '#ccc' }));
+  svgEl.appendChild(svg('line', { x1: m.l, y1: m.t + ih, x2: m.l + iw, y2: m.t + ih, stroke: '#ccc' }));
+  // left (volume) ticks
+  for (let i = 0; i <= 4; i++) {
+    const y = m.t + ih - (ih * i / 4);
+    svgEl.appendChild(svg('line', { x1: m.l - 3, y1: y, x2: m.l, y2: y, stroke: '#ccc' }));
+    svgEl.appendChild(svg('text', { x: m.l - 6, y: y + 3, 'text-anchor': 'end', fill: '#777' },
+      fmt(maxVol * i / 4)));
+  }
+  // right (1RM) ticks
+  if (maxRm > 0) for (let i = 0; i <= 4; i++) {
+    const y = m.t + ih - (ih * i / 4);
+    svgEl.appendChild(svg('text', { x: m.l + iw + 6, y: y + 3, fill: '#d33' }, fmt(maxRm * i / 4)));
+  }
+
+  const n = S.length;
+  const slot = iw / n;
+  const bw = Math.min(40, slot * 0.6);
+  S.forEach((s, i) => {
+    const cx = m.l + slot * (i + 0.5);
+    const bh = ih * (s.volume / maxVol);
+    svgEl.appendChild(svg('rect', {
+      x: cx - bw / 2, y: m.t + ih - bh, width: bw, height: bh,
+      fill: '#d33', 'fill-opacity': 0.22
+    }));
+    // x label: day (or M-D)
+    if (n <= 16 || i % Math.ceil(n / 16) === 0) {
+      const lbl = s.date.slice(5);
+      const t = svg('text', { x: cx, y: m.t + ih + 14, 'text-anchor': 'end', fill: '#777',
+        transform: `rotate(-40 ${cx} ${m.t + ih + 14})` }, lbl);
+      svgEl.appendChild(t);
+    }
+  });
+
+  // 1RM line
+  if (maxRm > 0) {
+    let dpath = '', started = false;
+    S.forEach((s, i) => {
+      if (s.one_rm == null) return;
+      const cx = m.l + slot * (i + 0.5);
+      const cy = m.t + ih - ih * (s.one_rm / maxRm);
+      dpath += (started ? ' L' : 'M') + cx + ' ' + cy;
+      started = true;
+      svgEl.appendChild(svg('circle', { cx, cy, r: 3, fill: '#d33' }));
+    });
+    if (dpath) svgEl.appendChild(svg('path', { d: dpath, fill: 'none', stroke: '#d33', 'stroke-width': 2 }));
+  }
+}
+
+async function load() {
+  const res = await fetch(`/api/dashboard?window=${win}&offset=${offset}&ex=${ex}`);
+  const d = await res.json();
+  document.getElementById('period').textContent = d.label;
+  document.getElementById('next').disabled = !d.can_next;
+
+  // populate exercise picker once, preserve selection
+  const sel = document.getElementById('expick');
+  if (sel.dataset.filled !== '1') {
+    for (const e of d.exercises) {
+      const o = document.createElement('option');
+      o.value = e.movement_id; o.textContent = e.name;
+      sel.appendChild(o);
+    }
+    sel.dataset.filled = '1';
+    // default to the first exercise so the 1RM line shows something
+    if (ex === '' && d.exercises.length) { ex = String(d.exercises[0].movement_id); sel.value = ex; return load(); }
+  }
+  sel.value = ex;
+
+  renderInsights(d);
+  renderChart(d);
+  document.querySelectorAll('[data-window]').forEach(b =>
+    b.classList.toggle('primary', b.dataset.window === win));
+}
+
+document.querySelectorAll('[data-window]').forEach(b =>
+  b.onclick = () => { win = b.dataset.window; offset = 0; load(); });
+document.getElementById('prev').onclick = () => { offset -= 1; load(); };
+document.getElementById('next').onclick = () => { if (offset < 0) { offset += 1; load(); } };
+document.getElementById('expick').onchange = e => { ex = e.target.value; load(); };
+
+load();
+</script>
+{% endblock %}

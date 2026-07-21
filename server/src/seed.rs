@@ -22,6 +22,8 @@ struct SeedExercise {
     #[serde(default)]
     default_timed: bool,
     #[serde(default)]
+    load_factor: f32,
+    #[serde(default)]
     profile: SeedProfile,
 }
 
@@ -54,6 +56,7 @@ pub fn seed_exercises(conn: &mut SqliteConnection) -> Result<(), String> {
                 exercises::profile_min_rep_ms.eq(e.profile.min_rep_ms),
                 exercises::profile_smoothing.eq(e.profile.smoothing),
                 exercises::is_builtin.eq(true),
+                exercises::load_factor.eq(e.load_factor),
             ))
             .on_conflict(exercises::watch_movement_id)
             .do_update()
@@ -66,6 +69,7 @@ pub fn seed_exercises(conn: &mut SqliteConnection) -> Result<(), String> {
                 exercises::profile_axis.eq(&e.profile.axis),
                 exercises::profile_min_rep_ms.eq(e.profile.min_rep_ms),
                 exercises::profile_smoothing.eq(e.profile.smoothing),
+                exercises::load_factor.eq(e.load_factor),
             ))
             .execute(conn)
             .map_err(|err| format!("seeding {}: {err}", e.name))?;

@@ -100,6 +100,19 @@ impl FromRequestParts<AppState> for CurrentUser {
     }
 }
 
+/// Extractor: the logged-in user if there is one, otherwise None. Never rejects.
+pub struct OptionalUser(pub Option<User>);
+
+impl FromRequestParts<AppState> for OptionalUser {
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+        Ok(OptionalUser(
+            CurrentUser::from_request_parts(parts, state).await.ok().map(|c| c.0),
+        ))
+    }
+}
+
 // ---- Google OIDC ----
 
 pub async fn google_start(State(state): State<AppState>, jar: CookieJar) -> (CookieJar, Redirect) {

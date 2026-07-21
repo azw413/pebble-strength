@@ -40,6 +40,17 @@ diesel::table! {
         profile_min_rep_ms -> Integer,
         profile_smoothing -> Integer,
         is_builtin -> Bool,
+        load_factor -> Float,
+    }
+}
+
+diesel::table! {
+    bodyweights (id) {
+        id -> Integer,
+        user_id -> Integer,
+        measured_on -> Date,
+        weight_kg -> Float,
+        created_at -> Timestamp,
     }
 }
 
@@ -152,4 +163,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     recordings,
     sessions,
     session_sets,
+    bodyweights,
 );
+
+diesel::joinable!(bodyweights -> users (user_id));

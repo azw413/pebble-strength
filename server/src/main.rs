@@ -1,5 +1,6 @@
 mod api;
 mod auth;
+mod dashboard;
 mod db;
 mod device;
 mod error;
@@ -75,7 +76,9 @@ async fn main() {
     };
 
     let app = Router::new()
-        .route("/", get(pages::landing))
+        .route("/", get(pages::home))
+        .route("/bodyweight", post(pages::add_bodyweight))
+        .route("/api/dashboard", get(api::dashboard))
         .route("/workouts", get(pages::workouts_page))
         .route("/workouts/new", get(pages::builder_new))
         .route("/workouts/{id}/edit", get(pages::builder_edit))

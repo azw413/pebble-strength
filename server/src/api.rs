@@ -111,3 +111,15 @@ pub async fn delete_session(
     .await?;
     Ok(Json(json!({ "deleted": true })))
 }
+
+pub async fn dashboard(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    axum::extract::Query(q): axum::extract::Query<crate::dashboard::DashQuery>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let data = db::run(&state.pool, move |conn| {
+        crate::dashboard::dashboard_json(conn, user.id, &q)
+    })
+    .await?;
+    Ok(Json(data))
+}
