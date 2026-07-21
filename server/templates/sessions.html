@@ -17,21 +17,39 @@
 <p class="muted">Workouts you've actually performed, logged automatically from
 the watch. Open one to correct reps, hold times, weights, or add/remove sets.</p>
 
-{% for r in rows %}
-<div class="card" style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
-  <strong>{{ r.date }}</strong>
-  <span class="badge accent">{{ r.name }}</span>
-  <span class="badge">{{ r.exercises }} exercises</span>
-  <span class="badge">{{ r.sets }} sets</span>
-  {% if r.reps > 0 %}<span class="badge">{{ r.reps }} reps</span>{% endif %}
-  {% if r.hold_secs > 0 %}<span class="badge">{{ r.hold_secs }} s held</span>{% endif %}
-  {% if r.work_secs > 0 %}<span class="badge">{{ r.work_secs }} s work</span>{% endif %}
-  <a class="btn" href="/sessions/{{ r.id }}" style="margin-left:auto">Edit</a>
-</div>
-{% endfor %}
-
 {% if rows.is_empty() %}
 <p class="muted">No sessions yet. Run a workout on the watch with the phone
 connected — each set is logged automatically and grouped into a session.</p>
+{% else %}
+<div class="tablewrap">
+<table class="list">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Workout</th>
+      <th class="num">Exercises</th>
+      <th class="num">Sets</th>
+      <th class="num">Reps</th>
+      <th class="num">Held</th>
+      <th class="num">Work</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.date }}</td>
+      <td>{{ r.name }}</td>
+      <td class="num">{{ r.exercises }}</td>
+      <td class="num">{{ r.sets }}</td>
+      <td class="num">{% if r.reps > 0 %}{{ r.reps }}{% else %}—{% endif %}</td>
+      <td class="num">{% if r.hold_secs > 0 %}{{ r.hold_secs }} s{% else %}—{% endif %}</td>
+      <td class="num">{% if r.work_secs > 0 %}{{ r.work_secs }} s{% else %}—{% endif %}</td>
+      <td class="action"><a class="btn small" href="/sessions/{{ r.id }}">Edit</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
 {% endif %}
 {% endblock %}

@@ -41,6 +41,15 @@
   .tokenbox { background: #fffbe6; border: 1px solid #e6d87a; border-radius: 8px;
               padding: 1rem; margin-bottom: 1rem; word-break: break-all; }
   code { background: #f0f0f0; padding: 0.1rem 0.3rem; border-radius: 4px; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  table.list { width: 100%; border-collapse: collapse; }
+  table.list th, table.list td { padding: 0.5rem 0.7rem; text-align: left; white-space: nowrap; }
+  table.list thead th { color: var(--muted); font-size: 0.72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--line); }
+  table.list td.num, table.list th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.list tbody tr:nth-child(even) { background: #f6f6f6; }
+  table.list tbody tr:hover { background: #fdf0f0; }
+  table.list td.action { text-align: right; }
 </style>
 </head>
 <body>
