@@ -104,7 +104,36 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    sessions (id) {
+        id -> Integer,
+        user_id -> Integer,
+        workout_name -> Text,
+        performed_on -> Timestamp,
+        notes -> Text,
+        created_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    session_sets (id) {
+        id -> Integer,
+        session_id -> Integer,
+        position -> Integer,
+        movement_id -> Integer,
+        exercise_name -> Text,
+        is_timed -> Bool,
+        actual -> Integer,
+        weight_kg -> Nullable<Float>,
+        work_secs -> Nullable<Integer>,
+        recording_id -> Nullable<Integer>,
+        performed_at -> Timestamp,
+    }
+}
+
 diesel::joinable!(web_sessions -> users (user_id));
+diesel::joinable!(sessions -> users (user_id));
+diesel::joinable!(session_sets -> sessions (session_id));
 diesel::joinable!(devices -> users (user_id));
 diesel::joinable!(workout_exercises -> workouts (workout_id));
 diesel::joinable!(workout_exercises -> exercises (exercise_id));
@@ -121,4 +150,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     workout_sets,
     user_slots,
     recordings,
+    sessions,
+    session_sets,
 );

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Sessions — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/sessions">Sessions</a>
+  <a href="/recordings">Recordings</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1>Sessions</h1>
+<p class="muted">Workouts you've actually performed, logged automatically from
+the watch. Open one to correct reps, hold times, weights, or add/remove sets.</p>
+
+{% for r in rows %}
+<div class="card">
+  <a href="/sessions/{{ r.id }}" style="text-decoration:none;color:inherit">
+    <strong>{{ r.name }}</strong>
+    <span class="badge accent">{{ r.date }}</span>
+    <span class="badge">{{ r.exercises }} exercises</span>
+    <span class="badge">{{ r.sets }} sets</span>
+    {% if r.reps > 0 %}<span class="badge">{{ r.reps }} reps</span>{% endif %}
+    {% if r.hold_secs > 0 %}<span class="badge">{{ r.hold_secs }} s held</span>{% endif %}
+    {% if r.work_secs > 0 %}<span class="badge">{{ r.work_secs }} s work</span>{% endif %}
+    <span class="btn" style="float:right">Edit</span>
+  </a>
+</div>
+{% endfor %}
+
+{% if rows.is_empty() %}
+<p class="muted">No sessions yet. Run a workout on the watch with the phone
+connected — each set is logged automatically and grouped into a session.</p>
+{% endif %}
+{% endblock %}

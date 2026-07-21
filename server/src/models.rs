@@ -75,3 +75,30 @@ pub struct WorkoutSet {
     pub target: i32,
     pub rest_secs: i32,
 }
+
+#[derive(Queryable, Identifiable, Clone, Debug, Serialize)]
+#[diesel(table_name = sessions)]
+pub struct Session {
+    pub id: i32,
+    pub user_id: i32,
+    pub workout_name: String,
+    pub performed_on: NaiveDateTime,
+    pub notes: String,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Queryable, Identifiable, Clone, Debug, Serialize)]
+#[diesel(table_name = session_sets)]
+pub struct SessionSet {
+    pub id: i32,
+    pub session_id: i32,
+    pub position: i32,
+    pub movement_id: i32,
+    pub exercise_name: String,
+    pub is_timed: bool,
+    pub actual: i32,
+    pub weight_kg: Option<f32>,
+    pub work_secs: Option<i32>,
+    pub recording_id: Option<i32>,
+    pub performed_at: NaiveDateTime,
+}

@@ -360,3 +360,175 @@ pub async fn delete_device(
     .await?;
     Ok(Redirect::to("/devices"))
 }
+
+// ---- Sessions ----
+
+pub struct SessionCard {
+    pub id: i32,
+    pub name: String,
+    pub date: String,
+    pub exercises: usize,
+    pub sets: usize,
+    pub reps: i32,
+    pub hold_secs: i32,
+    pub work_secs: i32,
+}
+
+#[derive(Template)]
+#[template(path = "sessions.html")]
+struct SessionsTemplate {
+    rows: Vec<SessionCard>,
+}
+
+pub async fn sessions_page(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+) -> Result<Html<String>, AppError> {
+    use crate::schema::{session_sets, sessions};
+    let rows = db::run(&state.pool, move |conn| {
+        let ss: Vec<crate::models::Session> = sessions::table
+            .filter(sessions::user_id.eq(user.id))
+            .order(sessions::performed_on.desc())
+            .load(conn)?;
+        let ids: Vec<i32> = ss.iter().map(|s| s.id).collect();
+        let sets: Vec<(i32, i32, i32, bool, Option<i32>)> = session_sets::table
+            .filter(session_sets::session_id.eq_any(&ids))
+            .select((
+                session_sets::session_id,
+                session_sets::movement_id,
+                session_sets::actual,
+                session_sets::is_timed,
+                session_sets::work_secs,
+            ))
+            .load(conn)?;
+        let cards = ss
+            .into_iter()
+            .map(|s| {
+                let mine: Vec<&(i32, i32, i32, bool, Option<i32>)> =
+                    sets.iter().filter(|r| r.0 == s.id).collect();
+                let mut movements: Vec<i32> = mine.iter().map(|r| r.1).collect();
+                movements.sort_unstable();
+                movements.dedup();
+                SessionCard {
+                    id: s.id,
+                    name: if s.workout_name.is_empty() {
+                        "(unnamed)".into()
+                    } else {
+                        s.workout_name.clone()
+                    },
+                    date: s.performed_on.format("%Y-%m-%d").to_string(),
+                    exercises: movements.len(),
+                    sets: mine.len(),
+                    reps: mine.iter().filter(|r| !r.3).map(|r| r.2).sum(),
+                    hold_secs: mine.iter().filter(|r| r.3).map(|r| r.2).sum(),
+                    work_secs: mine.iter().filter_map(|r| r.4).sum(),
+                }
+            })
+            .collect();
+        Ok(cards)
+    })
+    .await?;
+    Ok(Html(SessionsTemplate { rows }.render()?))
+}
+
+#[derive(Template)]
+#[template(path = "session.html")]
+struct SessionEditTemplate {
+    session_id: i32,
+    heading: String,
+    session_json: String,
+    exercises_json: String,
+}
+
+pub async fn session_detail_page(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+) -> Result<Html<String>, AppError> {
+    use crate::schema::{exercises, session_sets, sessions};
+    let (session_json, exercises_json, heading) = db::run(&state.pool, move |conn| {
+        let s: crate::models::Session = sessions::table
+            .filter(sessions::id.eq(id))
+            .filter(sessions::user_id.eq(user.id))
+            .first(conn)
+            .optional()?
+            .ok_or(AppError::NotFound)?;
+        let sets: Vec<crate::models::SessionSet> = session_sets::table
+            .filter(session_sets::session_id.eq(id))
+            .order(session_sets::position.asc())
+            .load(conn)?;
+
+        // Group consecutive same-movement sets into exercises; derive per-set
+        // rest from the gap to the next set's start, minus this set's work time.
+        let mut ex_json: Vec<serde_json::Value> = Vec::new();
+        let mut i = 0;
+        while i < sets.len() {
+            let mv = sets[i].movement_id;
+            let name = sets[i].exercise_name.clone();
+            let timed = sets[i].is_timed;
+            let mut group: Vec<serde_json::Value> = Vec::new();
+            while i < sets.len() && sets[i].movement_id == mv {
+                let cur = &sets[i];
+                let rest = if i + 1 < sets.len() {
+                    let d = (sets[i + 1].performed_at - cur.performed_at).num_seconds()
+                        - cur.work_secs.unwrap_or(0) as i64;
+                    Some(d.max(0))
+                } else {
+                    None
+                };
+                group.push(serde_json::json!({
+                    "actual": cur.actual,
+                    "weight_kg": cur.weight_kg,
+                    "work_secs": cur.work_secs,
+                    "rest_secs": rest,
+                    "recording_id": cur.recording_id,
+                }));
+                i += 1;
+            }
+            ex_json.push(serde_json::json!({
+                "movement_id": mv,
+                "exercise_name": name,
+                "is_timed": timed,
+                "sets": group,
+            }));
+        }
+
+        let session_json = serde_json::json!({
+            "id": s.id,
+            "workout_name": s.workout_name,
+            "performed_on": s.performed_on.format("%Y-%m-%d").to_string(),
+            "notes": s.notes,
+            "exercises": ex_json,
+        });
+
+        let cat: Vec<serde_json::Value> = exercises::table
+            .order(exercises::name.asc())
+            .load::<Exercise>(conn)?
+            .into_iter()
+            .map(|e| {
+                serde_json::json!({
+                    "movement_id": e.watch_movement_id,
+                    "name": e.name,
+                    "body_area": e.body_area,
+                    "default_timed": e.default_timed,
+                })
+            })
+            .collect();
+
+        let heading = if s.workout_name.is_empty() {
+            format!("Session — {}", s.performed_on.format("%Y-%m-%d"))
+        } else {
+            format!("{} — {}", s.workout_name, s.performed_on.format("%Y-%m-%d"))
+        };
+        Ok((script_json(&session_json)?, script_json(&cat)?, heading))
+    })
+    .await?;
+
+    let tpl = SessionEditTemplate {
+        session_id: id,
+        heading,
+        session_json,
+        exercises_json,
+    };
+    Ok(Html(tpl.render()?))
+}

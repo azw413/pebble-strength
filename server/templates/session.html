@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/sessions">Sessions</a>
+  <a href="/recordings">Recordings</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1>{{ heading }}</h1>
+
+<div class="card">
+  <div class="row">
+    <label>Workout <input type="text" id="workout_name" maxlength="64" size="24"></label>
+    <label>Date <input type="date" id="performed_on"></label>
+  </div>
+  <div class="row">
+    <label style="flex:1">Notes<br>
+      <textarea id="notes" rows="2" style="width:100%"></textarea>
+    </label>
+  </div>
+</div>
+
+<div id="exlist"></div>
+
+<div class="row">
+  <button id="addex">+ Add exercise</button>
+</div>
+
+<div class="row">
+  <button id="save" class="primary">Save session</button>
+  <a class="btn" href="/sessions">Cancel</a>
+  <button id="del">Delete session</button>
+  <span id="err" class="error"></span>
+</div>
+
+<script>
+const EXERCISES = {{ exercises_json|safe }};
+const SESSION = {{ session_json|safe }};
+const SESSION_ID = {{ session_id }};
+const byMovement = new Map(EXERCISES.map(e => [e.movement_id, e]));
+
+let state = JSON.parse(JSON.stringify(SESSION));
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+function defaultExercise() {
+  const first = EXERCISES[0];
+  return {
+    movement_id: first.movement_id, exercise_name: first.name,
+    is_timed: first.default_timed,
+    sets: [{ actual: 0, weight_kg: null, work_secs: null, rest_secs: null, recording_id: null }]
+  };
+}
+
+function movementSelect(ex) {
+  const sel = el('select');
+  const areas = [...new Set(EXERCISES.map(e => e.body_area))];
+  for (const area of areas) {
+    const grp = document.createElement('optgroup');
+    grp.label = area;
+    for (const e of EXERCISES.filter(x => x.body_area === area)) {
+      const opt = el('option', '', e.name);
+      opt.value = e.movement_id;
+      if (e.movement_id === ex.movement_id) opt.selected = true;
+      grp.appendChild(opt);
+    }
+    sel.appendChild(grp);
+  }
+  sel.onchange = () => {
+    ex.movement_id = Number(sel.value);
+    const info = byMovement.get(ex.movement_id);
+    if (info) { ex.exercise_name = info.name; ex.is_timed = info.default_timed; }
+    render();
+  };
+  return sel;
+}
+
+function setRow(ex, s, j) {
+  const row = el('div', 'row');
+  row.appendChild(el('span', 'muted', 'Set ' + (j + 1)));
+
+  const actual = el('input');
+  actual.type = 'number'; actual.min = 0; actual.max = 255; actual.value = s.actual;
+  actual.oninput = () => { s.actual = Number(actual.value); };
+  row.appendChild(actual);
+  row.appendChild(el('span', 'muted', ex.is_timed ? 'sec hold' : 'reps'));
+
+  const weight = el('input');
+  weight.type = 'number'; weight.min = 0; weight.max = 500; weight.step = 0.25;
+  weight.placeholder = 'bw';
+  weight.value = (s.weight_kg === null || s.weight_kg === undefined) ? '' : s.weight_kg;
+  weight.oninput = () => { s.weight_kg = weight.value === '' ? null : Number(weight.value); };
+  row.appendChild(weight);
+  row.appendChild(el('span', 'muted', 'kg'));
+
+  if (s.work_secs !== null && s.work_secs !== undefined)
+    row.appendChild(el('span', 'badge', s.work_secs + ' s work'));
+  if (s.rest_secs !== null && s.rest_secs !== undefined)
+    row.appendChild(el('span', 'badge', s.rest_secs + ' s rest'));
+
+  const rm = el('button', 'small', '×');
+  rm.onclick = () => { ex.sets.splice(j, 1); if (ex.sets.length === 0) removeExercise(ex); render(); };
+  row.appendChild(rm);
+  return row;
+}
+
+function removeExercise(ex) {
+  const i = state.exercises.indexOf(ex);
+  if (i >= 0) state.exercises.splice(i, 1);
+}
+
+function exerciseCard(ex, i) {
+  const card = el('div', 'card');
+  const head = el('div', 'row');
+  head.appendChild(movementSelect(ex));
+
+  const timed = el('input'); timed.type = 'checkbox'; timed.checked = ex.is_timed;
+  timed.onchange = () => { ex.is_timed = timed.checked; render(); };
+  const tl = el('label'); tl.appendChild(timed); tl.appendChild(document.createTextNode(' timed hold'));
+  head.appendChild(tl);
+
+  const up = el('button', 'small', '↑');
+  up.disabled = i === 0;
+  up.onclick = () => { state.exercises.splice(i - 1, 0, state.exercises.splice(i, 1)[0]); render(); };
+  const down = el('button', 'small', '↓');
+  down.disabled = i === state.exercises.length - 1;
+  down.onclick = () => { state.exercises.splice(i + 1, 0, state.exercises.splice(i, 1)[0]); render(); };
+  const rm = el('button', 'small', 'remove');
+  rm.onclick = () => { state.exercises.splice(i, 1); render(); };
+  head.appendChild(up); head.appendChild(down); head.appendChild(rm);
+  card.appendChild(head);
+
+  ex.sets.forEach((s, j) => card.appendChild(setRow(ex, s, j)));
+
+  const add = el('button', 'small', '+ set');
+  add.onclick = () => {
+    const last = ex.sets[ex.sets.length - 1];
+    ex.sets.push({
+      actual: last ? last.actual : 0,
+      weight_kg: last ? last.weight_kg : null,
+      work_secs: null, rest_secs: null, recording_id: null
+    });
+    render();
+  };
+  card.appendChild(add);
+  return card;
+}
+
+function render() {
+  const list = document.getElementById('exlist');
+  list.innerHTML = '';
+  state.exercises.forEach((ex, i) => list.appendChild(exerciseCard(ex, i)));
+}
+
+async function save() {
+  state.workout_name = document.getElementById('workout_name').value;
+  state.performed_on = document.getElementById('performed_on').value;
+  state.notes = document.getElementById('notes').value;
+  const err = document.getElementById('err');
+  err.textContent = '';
+
+  const sets = [];
+  for (const ex of state.exercises) {
+    for (const s of ex.sets) {
+      sets.push({
+        movement_id: ex.movement_id,
+        exercise_name: ex.exercise_name,
+        is_timed: ex.is_timed,
+        actual: Number(s.actual) || 0,
+        weight_kg: (s.weight_kg === null || s.weight_kg === undefined || s.weight_kg === '') ? null : Number(s.weight_kg),
+        work_secs: (s.work_secs === null || s.work_secs === undefined) ? null : Number(s.work_secs),
+        recording_id: s.recording_id === undefined ? null : s.recording_id,
+      });
+    }
+  }
+  const body = {
+    workout_name: state.workout_name,
+    performed_on: state.performed_on,
+    notes: state.notes,
+    sets
+  };
+  const res = await fetch('/api/sessions/' + SESSION_ID, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (res.ok) location.href = '/sessions';
+  else err.textContent = await res.text();
+}
+
+async function del() {
+  if (!confirm('Delete this session? This cannot be undone.')) return;
+  const res = await fetch('/api/sessions/' + SESSION_ID, { method: 'DELETE' });
+  if (res.ok) location.href = '/sessions';
+  else document.getElementById('err').textContent = await res.text();
+}
+
+document.getElementById('addex').onclick = () => { state.exercises.push(defaultExercise()); render(); };
+document.getElementById('save').onclick = save;
+document.getElementById('del').onclick = del;
+
+document.getElementById('workout_name').value = state.workout_name;
+document.getElementById('performed_on').value = state.performed_on;
+document.getElementById('notes').value = state.notes;
+render();
+</script>
+{% endblock %}

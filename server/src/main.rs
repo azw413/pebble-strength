@@ -9,6 +9,7 @@ mod pages;
 mod sample;
 mod schema;
 mod seed;
+mod sessions;
 mod workouts;
 
 use std::env;
@@ -54,6 +55,11 @@ async fn main() {
         if cfg.dev_login {
             sample::ensure_dev_samples(&mut conn).expect("sample workouts");
         }
+        // Group any recordings not yet attached to a session (idempotent).
+        let logged = sessions::backfill(&mut conn).expect("session backfill");
+        if logged > 0 {
+            eprintln!("note: backfilled {logged} recording(s) into sessions");
+        }
     }
     if cfg.google_client_id.is_none() {
         eprintln!("note: GOOGLE_CLIENT_ID not set — Google sign-in disabled");
@@ -89,6 +95,12 @@ async fn main() {
         .route("/api/device/recordings", post(device::upload_recording))
         .route("/recordings", get(pages::recordings_page))
         .route("/recordings/{id}/csv", get(pages::recording_csv))
+        .route("/sessions", get(pages::sessions_page))
+        .route("/sessions/{id}", get(pages::session_detail_page))
+        .route(
+            "/api/sessions/{id}",
+            put(api::update_session).delete(api::delete_session),
+        )
         .with_state(state);
 
     let bind_host = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1".to_string());

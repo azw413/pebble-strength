@@ -13,7 +13,7 @@ use crate::auth::hash_token;
 use crate::error::AppError;
 use crate::models::Device;
 use crate::schema::{devices, exercises, recordings, users};
-use crate::{db, pack, workouts as wk, AppState};
+use crate::{db, pack, sessions, workouts as wk, AppState};
 
 fn bearer_token(headers: &HeaderMap) -> Result<String, AppError> {
     headers
@@ -155,6 +155,24 @@ pub async fn upload_recording(
             ))
             .returning(recordings::id)
             .get_result::<i32>(conn)?;
+        // Auto-log this set into a session (work time ≈ the accel capture span).
+        let work = if up.sample_rate > 0 {
+            Some(up.sample_count / up.sample_rate)
+        } else {
+            None
+        };
+        sessions::log_recording(
+            conn,
+            user_id,
+            id,
+            &up.workout_name,
+            up.movement_id,
+            &exercise_name,
+            up.is_timed,
+            up.actual,
+            work,
+            Utc::now().naive_utc(),
+        )?;
         Ok(id)
     })
     .await?;

@@ -7,7 +7,7 @@ use crate::auth::CurrentUser;
 use crate::error::AppError;
 use crate::models::Workout;
 use crate::schema::workouts;
-use crate::{db, pack, workouts as wk, AppState};
+use crate::{db, pack, sessions as sess, workouts as wk, AppState};
 
 pub async fn create_workout(
     State(state): State<AppState>,
@@ -79,4 +79,35 @@ pub async fn packed_preview(
         "cap": pack::PACK_CAP,
         "hex": hex,
     })))
+}
+
+pub async fn update_session(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+    Json(input): Json<sess::SessionInput>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let id = db::run(&state.pool, move |conn| sess::save(conn, user.id, id, &input)).await?;
+    Ok(Json(json!({ "id": id })))
+}
+
+pub async fn delete_session(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    db::run(&state.pool, move |conn| {
+        let n = diesel::delete(
+            crate::schema::sessions::table
+                .filter(crate::schema::sessions::id.eq(id))
+                .filter(crate::schema::sessions::user_id.eq(user.id)),
+        )
+        .execute(conn)?;
+        if n == 0 {
+            return Err(AppError::NotFound);
+        }
+        Ok(())
+    })
+    .await?;
+    Ok(Json(json!({ "deleted": true })))
 }
