@@ -207,7 +207,7 @@ pub async fn google_callback(
     let jar = jar
         .remove(Cookie::from(STATE_COOKIE))
         .add(session_cookie(&state, session_token));
-    Ok((jar, Redirect::to("/workouts")))
+    Ok((jar, Redirect::to("/")))
 }
 
 // ---- Dev login (DEV_LOGIN=1 only) ----
@@ -224,7 +224,7 @@ pub async fn dev_login(
         create_session(conn, user.id)
     })
     .await?;
-    Ok((jar.add(session_cookie(&state, token)), Redirect::to("/workouts")))
+    Ok((jar.add(session_cookie(&state, token)), Redirect::to("/")))
 }
 
 pub async fn logout(State(state): State<AppState>, jar: CookieJar) -> Result<(CookieJar, Redirect), AppError> {

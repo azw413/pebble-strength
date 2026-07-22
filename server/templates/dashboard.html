@@ -77,10 +77,11 @@ function svg(tag, attrs, text) {
 }
 function fmt(n) { return Math.round(n).toLocaleString(); }
 
-function card(label, value, sub) {
-  const c = document.createElement('div');
-  c.className = 'card';
+function card(label, value, sub, href) {
+  const c = document.createElement(href ? 'a' : 'div');
+  c.className = href ? 'card cardlink' : 'card';
   c.style.cssText = 'flex:1;min-width:120px;margin:0';
+  if (href) { c.href = href; c.style.textDecoration = 'none'; c.style.color = 'inherit'; }
   c.appendChild(Object.assign(document.createElement('div'), { className: 'muted', textContent: label }));
   const v = document.createElement('div');
   v.style.cssText = 'font-size:1.5rem;font-weight:700';
@@ -95,7 +96,7 @@ function renderInsights(d) {
   box.innerHTML = '';
   const ins = d.insights;
   box.appendChild(card('Volume', fmt(ins.total_volume), 'kg·reps'));
-  box.appendChild(card('Sessions', ins.session_count, ''));
+  box.appendChild(card('Sessions', ins.session_count, 'view all →', '/sessions'));
   box.appendChild(card('Best 1RM', ins.best_1rm != null ? fmt(ins.best_1rm) + ' kg' : '—', exName()));
   box.appendChild(card('Time held', ins.hold_secs + ' s', ''));
   box.appendChild(card('Bodyweight', ins.bodyweight + ' kg', ins.has_bodyweight ? '' : 'default'));
