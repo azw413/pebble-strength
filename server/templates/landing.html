@@ -1,29 +1,76 @@
 {% extends "base.html" %}
 
+{% block title %}Strength — training for your Pebble{% endblock %}
+
 {% block content %}
-<h1>Strength</h1>
-<p>Program strength workouts here, run them from your Pebble: guided sets,
-automatic rep counting, rest timers, and training history.</p>
-
-{% if google_enabled %}
-<p><a class="btn primary" href="/auth/google">Sign in with Google</a></p>
-{% endif %}
-
-{% if dev_login %}
-<form method="post" action="/auth/dev">
-  <button type="submit">Dev login (local only)</button>
-</form>
-{% endif %}
-
-{% if !google_enabled && !dev_login %}
-<div class="card">
-  <p>No sign-in method is configured. Set <code>GOOGLE_CLIENT_ID</code> and
-  <code>GOOGLE_CLIENT_SECRET</code> (see <code>server/.env.example</code>),
-  or set <code>DEV_LOGIN=1</code> for local development.</p>
+<div style="display:flex;gap:2.4rem;flex-wrap:wrap;align-items:center;margin-bottom:2.4rem">
+  <div style="flex:1;min-width:280px">
+    <span class="eyebrow">Wearable Strength OS</span>
+    <h1 style="font-size:2.1rem;line-height:1.1;margin:0.4rem 0 0.8rem">Strength training,<br>run from your wrist.</h1>
+    <p class="muted" style="font-size:1.05rem">Program your workouts on the web, then run them from your Pebble —
+    guided sets, timed holds, rest countdowns, and automatic rep counting. Your sets sync back and turn into
+    progress charts: volume, estimated 1-rep-max, and bodyweight over time.</p>
+    {% if google_enabled %}
+    <p style="margin-top:1.2rem"><a class="btn primary" href="/auth/google" style="font-size:1.05rem;padding:0.7rem 1.4rem">Sign in with Google</a></p>
+    {% endif %}
+    {% if dev_login %}
+    <form method="post" action="/auth/dev" style="margin-top:0.6rem">
+      <button type="submit">Dev login (local only)</button>
+    </form>
+    {% endif %}
+    {% if !google_enabled && !dev_login %}
+    <div class="card" style="margin-top:1rem">
+      <p class="muted" style="margin:0">No sign-in method is configured. Set <code>GOOGLE_CLIENT_ID</code> /
+      <code>GOOGLE_CLIENT_SECRET</code> (see <code>server/.env.example</code>), or <code>DEV_LOGIN=1</code> for local dev.</p>
+    </div>
+    {% endif %}
+  </div>
+  <div style="flex:0 0 auto;text-align:center">
+    <img src="/static/strength-demo.gif" alt="Strength running on a Pebble Time" width="264"
+         style="border-radius:14px;box-shadow:var(--shadow);max-width:100%">
+    <div class="muted" style="font-size:0.8rem;margin-top:0.5rem">Live on a Pebble Time</div>
+  </div>
 </div>
-{% endif %}
 
-<p class="muted" style="margin-top:2.5rem;font-size:0.85rem">
+<span class="eyebrow">What you can do</span>
+<div class="row" style="align-items:stretch;margin-top:0.5rem">
+  <div class="card" style="flex:1;min-width:220px;margin:0">
+    <strong>Guided workouts on the watch</strong>
+    <p class="muted" style="margin-bottom:0">Per-set rep targets, timed holds with a 3-2-1 lead-in, and skippable
+    rest countdowns with vibration cues — fully usable mid-set with no phone in reach.</p>
+  </div>
+  <div class="card" style="flex:1;min-width:220px;margin:0">
+    <strong>Automatic rep counting</strong>
+    <p class="muted" style="margin-bottom:0">The accelerometer counts your reps as you go; a quick Up/Down on the
+    watch corrects the count before it's logged.</p>
+  </div>
+</div>
+<div class="row" style="align-items:stretch">
+  <div class="card" style="flex:1;min-width:220px;margin:0">
+    <strong>Two-way sync</strong>
+    <p class="muted" style="margin-bottom:0">Build and edit workouts on the web and they appear on your wrist;
+    the sets you perform sync straight back to your account.</p>
+  </div>
+  <div class="card" style="flex:1;min-width:220px;margin:0">
+    <strong>Progress you can see</strong>
+    <p class="muted" style="margin-bottom:0">A dashboard of training volume, estimated 1-rep-max per exercise,
+    bodyweight over time, and a full, editable session history.</p>
+  </div>
+</div>
+
+<span class="eyebrow" style="margin-top:1.6rem">Get started</span>
+<div class="card" style="margin-top:0.5rem">
+  <ol style="padding-left:1.3rem;margin:0.2rem 0">
+    <li style="margin:0.4rem 0"><strong>Sign in with Google</strong> above to create your account.</li>
+    <li style="margin:0.4rem 0">Install the <strong>Strength</strong> watchapp on your Pebble from the appstore.</li>
+    <li style="margin:0.4rem 0">Under <strong>Devices</strong>, create a device token, then paste it into the
+    Strength app's <strong>settings gear</strong> in the Pebble phone app.</li>
+    <li style="margin:0.4rem 0">Build workouts and assign them to your watch slots — they download to your wrist,
+    and every set you do syncs back.</li>
+  </ol>
+</div>
+
+<p class="muted" style="margin-top:2rem;font-size:0.85rem">
   <a href="/privacy.html" style="color:inherit">Privacy Policy</a> ·
   <a href="/terms.html" style="color:inherit">Terms of Service</a>
 </p>

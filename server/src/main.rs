@@ -94,6 +94,7 @@ async fn main() {
         .route("/bodyweight/delete", post(pages::delete_bodyweight))
         .route("/api/dashboard", get(api::dashboard))
         .route("/static/fonts/{name}", get(pages::font))
+        .route("/static/strength-demo.gif", get(pages::promo_gif))
         .route("/workouts", get(pages::workouts_page))
         .route("/workouts/new", get(pages::builder_new))
         .route("/workouts/{id}", get(pages::workout_view))

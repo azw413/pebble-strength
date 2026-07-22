@@ -885,3 +885,18 @@ pub async fn stats_page(
     };
     Ok(Html(tpl.render()?))
 }
+
+/// The promo demo GIF, embedded in the binary (shown on the landing page).
+pub async fn promo_gif() -> axum::response::Response {
+    use axum::http::header;
+    use axum::response::IntoResponse;
+    let bytes: &'static [u8] = include_bytes!("../../docs/promo/strength-demo.gif");
+    (
+        [
+            (header::CONTENT_TYPE, "image/gif"),
+            (header::CACHE_CONTROL, "public, max-age=86400"),
+        ],
+        bytes,
+    )
+        .into_response()
+}
