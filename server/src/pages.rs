@@ -96,6 +96,32 @@ pub struct BwForm {
     weight_kg: f32,
 }
 
+#[derive(Deserialize)]
+pub struct BwDeleteForm {
+    measured_on: String,
+}
+
+/// Delete a bodyweight entry for a date.
+pub async fn delete_bodyweight(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Form(form): Form<BwDeleteForm>,
+) -> Result<Redirect, AppError> {
+    let date = chrono::NaiveDate::parse_from_str(form.measured_on.trim(), "%Y-%m-%d")
+        .map_err(|e| AppError::BadRequest(format!("bad date: {e}")))?;
+    db::run(&state.pool, move |conn| {
+        diesel::delete(
+            bodyweights::table
+                .filter(bodyweights::user_id.eq(user.id))
+                .filter(bodyweights::measured_on.eq(date)),
+        )
+        .execute(conn)?;
+        Ok(())
+    })
+    .await?;
+    Ok(Redirect::to("/"))
+}
+
 /// Add (or replace) a bodyweight entry for a date.
 pub async fn add_bodyweight(
     State(state): State<AppState>,

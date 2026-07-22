@@ -80,6 +80,7 @@ async fn main() {
         .route("/privacy.html", get(pages::privacy))
         .route("/terms.html", get(pages::terms))
         .route("/bodyweight", post(pages::add_bodyweight))
+        .route("/bodyweight/delete", post(pages::delete_bodyweight))
         .route("/api/dashboard", get(api::dashboard))
         .route("/static/fonts/{name}", get(pages::font))
         .route("/workouts", get(pages::workouts_page))

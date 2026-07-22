@@ -58,9 +58,9 @@
   {% if bodyweights.is_empty() %}
   <p class="muted">No bodyweight logged yet — calisthenics load assumes 75 kg until you add one.</p>
   {% else %}
-  <p class="muted">Recent:
-    {% for b in bodyweights %}<span class="badge">{{ b.date }}: {{ b.weight }} kg</span>{% endfor %}
-  </p>
+  <div class="muted" style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;margin:0.6rem 0">Recent:
+    {% for b in bodyweights %}<form method="post" action="/bodyweight/delete" class="badge" style="gap:0.45rem;margin:0" onsubmit="return confirm('Delete the {{ b.date }} bodyweight entry ({{ b.weight }} kg)?')"><input type="hidden" name="measured_on" value="{{ b.date }}"><span>{{ b.date }}: {{ b.weight }} kg</span><button type="submit" title="delete" style="border:none;background:none;color:var(--accent);cursor:pointer;font:inherit;font-weight:700;padding:0;line-height:1">×</button></form>{% endfor %}
+  </div>
   {% endif %}
 </div>
 
