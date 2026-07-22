@@ -53,6 +53,8 @@
     <label>Weight <input type="number" name="weight_kg" step="0.1" min="20" max="300" placeholder="kg" required></label>
     <button class="primary small">Add</button>
   </form>
+  <svg id="bwchart" viewBox="0 0 680 180" style="width:100%;height:auto;font:11px sans-serif;margin:0.6rem 0;display:none"></svg>
+  <div class="muted" id="bwhint" style="margin:0.2rem 0"></div>
   {% if bodyweights.is_empty() %}
   <p class="muted">No bodyweight logged yet — calisthenics load assumes 75 kg until you add one.</p>
   {% else %}
@@ -64,6 +66,7 @@
 
 <script>
 const SVGNS = 'http://www.w3.org/2000/svg';
+const BODYWEIGHTS = {{ bodyweights_json|safe }};
 let win = 'month', offset = 0, ex = '';
 
 function svg(tag, attrs, text) {
@@ -183,6 +186,48 @@ function celebratePB(isPb) {
   }
 }
 
+function drawBwChart() {
+  const el = document.getElementById('bwchart');
+  const hint = document.getElementById('bwhint');
+  const B = BODYWEIGHTS;
+  if (B.length < 2) {
+    el.style.display = 'none';
+    hint.textContent = B.length === 1
+      ? `Logged ${B[0].kg} kg on ${B[0].date}. Add another day to see your trend.`
+      : '';
+    return;
+  }
+  hint.textContent = '';
+  el.style.display = '';
+  el.innerHTML = '';
+  const W = 680, H = 180, m = { t: 14, r: 20, b: 26, l: 42 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const day = s => Date.parse(s) / 86400000;
+  const d0 = day(B[0].date), dN = day(B[B.length - 1].date);
+  const span = Math.max(1, dN - d0);
+  const kg = B.map(b => b.kg);
+  let lo = Math.min(...kg), hi = Math.max(...kg);
+  if (hi === lo) { hi += 1; lo -= 1; } else { const p = (hi - lo) * 0.2; hi += p; lo -= p; }
+  const X = s => m.l + iw * (day(s) - d0) / span;
+  const Y = w => m.t + ih * (1 - (w - lo) / (hi - lo));
+  el.appendChild(svg('line', { x1: m.l, y1: m.t, x2: m.l, y2: m.t + ih, stroke: '#ccc' }));
+  el.appendChild(svg('line', { x1: m.l, y1: m.t + ih, x2: m.l + iw, y2: m.t + ih, stroke: '#ccc' }));
+  for (let i = 0; i <= 2; i++) {
+    const w = lo + (hi - lo) * i / 2, y = Y(w);
+    el.appendChild(svg('line', { x1: m.l - 3, y1: y, x2: m.l, y2: y, stroke: '#ccc' }));
+    el.appendChild(svg('text', { x: m.l - 6, y: y + 3, 'text-anchor': 'end', fill: '#777' }, w.toFixed(1)));
+  }
+  el.appendChild(svg('text', { x: m.l, y: m.t + ih + 16, 'text-anchor': 'start', fill: '#777' }, B[0].date.slice(5)));
+  el.appendChild(svg('text', { x: m.l + iw, y: m.t + ih + 16, 'text-anchor': 'end', fill: '#777' }, B[B.length - 1].date.slice(5)));
+  let d = '';
+  B.forEach((b, i) => { d += (i ? ' L' : 'M') + X(b.date) + ' ' + Y(b.kg); });
+  el.appendChild(svg('path', { d, fill: 'none', stroke: '#5c6b3a', 'stroke-width': 2 }));
+  B.forEach(b => el.appendChild(svg('circle', { cx: X(b.date), cy: Y(b.kg), r: 2.5, fill: '#5c6b3a' })));
+  const last = B[B.length - 1];
+  el.appendChild(svg('text', { x: X(last.date), y: Y(last.kg) - 6, 'text-anchor': 'end',
+    fill: '#5c6b3a', 'font-weight': '700' }, `${last.kg.toFixed(1)} kg`));
+}
+
 async function load() {
   const exq = ex ? `&ex=${ex}` : '';
   const res = await fetch(`/api/dashboard?window=${win}&offset=${offset}${exq}`);
@@ -218,6 +263,7 @@ document.getElementById('prev').onclick = () => { offset -= 1; load(); };
 document.getElementById('next').onclick = () => { if (offset < 0) { offset += 1; load(); } };
 document.getElementById('expick').onchange = e => { ex = e.target.value; load(); };
 
+drawBwChart();
 load();
 </script>
 {% endblock %}

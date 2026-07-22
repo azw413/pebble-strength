@@ -35,6 +35,7 @@ struct DashboardTemplate {
     user_name: String,
     today: String,
     bodyweights: Vec<BwRow>,
+    bodyweights_json: String,
 }
 
 /// Home: the dashboard when logged in, otherwise the landing page.
@@ -55,25 +56,37 @@ pub async fn home(
     } else {
         user.display_name.clone()
     };
-    let bodyweights = db::run(&state.pool, move |conn| {
-        let rows: Vec<(chrono::NaiveDate, f32)> = bodyweights::table
+    let bw_rows: Vec<(chrono::NaiveDate, f32)> = db::run(&state.pool, move |conn| {
+        Ok(bodyweights::table
             .filter(bodyweights::user_id.eq(user.id))
-            .order(bodyweights::measured_on.desc())
-            .limit(8)
+            .order(bodyweights::measured_on.asc())
             .select((bodyweights::measured_on, bodyweights::weight_kg))
-            .load(conn)?;
-        Ok(rows
-            .into_iter()
-            .map(|(d, w)| BwRow {
-                date: d.format("%Y-%m-%d").to_string(),
-                weight: format!("{w}"),
-            })
-            .collect::<Vec<_>>())
+            .load(conn)?)
     })
     .await?;
 
+    // Full series (ascending) for the trend chart.
+    let series: Vec<serde_json::Value> = bw_rows
+        .iter()
+        .map(|(d, w)| serde_json::json!({
+            "date": d.format("%Y-%m-%d").to_string(),
+            "kg": (*w as f64 * 10.0).round() / 10.0,
+        }))
+        .collect();
+    let bodyweights_json = script_json(&series)?;
+    // Most-recent-first badges for the quick list.
+    let bodyweights: Vec<BwRow> = bw_rows
+        .iter()
+        .rev()
+        .take(8)
+        .map(|(d, w)| BwRow {
+            date: d.format("%Y-%m-%d").to_string(),
+            weight: format!("{w}"),
+        })
+        .collect();
+
     let today = chrono::Utc::now().naive_utc().date().format("%Y-%m-%d").to_string();
-    let tpl = DashboardTemplate { user_name, today, bodyweights };
+    let tpl = DashboardTemplate { user_name, today, bodyweights, bodyweights_json };
     Ok(Html(tpl.render()?))
 }
 

@@ -250,7 +250,7 @@ pub fn dashboard_json(
             "session_count": sess.len(),
             "best_1rm": best_1rm.map(|v| (v * 10.0).round() / 10.0),
             "hold_secs": hold_secs,
-            "bodyweight": bw_for(&bw_log, today),
+            "bodyweight": (bw_for(&bw_log, today) as f64 * 10.0).round() / 10.0,
             "has_bodyweight": !bw_log.is_empty(),
             "pb": is_pb,
         }
