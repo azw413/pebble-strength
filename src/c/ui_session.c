@@ -279,16 +279,17 @@ static void render_active(GContext *ctx, GRect b) {
   graphics_context_set_text_color(ctx, GColorDarkCandyAppleRed);
 #endif
   if (!cur_timed()) {
-    // Work timer is the headline until the rep counter earns the big font.
-    snprintf(buf, sizeof buf, "%d:%02d", s_work_elapsed / 60, s_work_elapsed % 60);
-    draw_text(ctx, buf, FONT_HUGE_NUM, big);
-    graphics_context_set_text_color(ctx, GColorBlack);
+    // Reps are the headline — the big count you read and correct. (BITHAM has
+    // the '/', unlike the digits-only huge font.) Work timer sits small below.
     if (cur_amrap()) {
-      snprintf(buf, sizeof buf, "reps %d", s_counter);
+      snprintf(buf, sizeof buf, "%d", s_counter);
     } else {
-      snprintf(buf, sizeof buf, "reps %d / %d", s_counter, cur_set().target);
+      snprintf(buf, sizeof buf, "%d / %d", s_counter, cur_set().target);
     }
-    draw_text(ctx, buf, FONT_KEY_GOTHIC_28_BOLD, sub);
+    draw_text(ctx, buf, FONT_KEY_BITHAM_42_BOLD, GRect(0, 50, b.size.w, 50));
+    graphics_context_set_text_color(ctx, GColorBlack);
+    snprintf(buf, sizeof buf, "reps    work %d:%02d", s_work_elapsed / 60, s_work_elapsed % 60);
+    draw_text(ctx, buf, FONT_KEY_GOTHIC_18, GRect(2, 104, b.size.w - 4, 22));
     draw_text(ctx, "select = done", FONT_KEY_GOTHIC_18, foot);
   } else if (s_hold_state == HOLD_IDLE) {
     snprintf(buf, sizeof buf, "%d", cur_set().target);
@@ -329,16 +330,17 @@ static void render_rest(GContext *ctx, GRect b) {
   }
   if (nx < s_workout.exercise_count) {
     const PackExercise *e = &s_workout.exercises[nx];
-    snprintf(buf, sizeof buf, "%s %d/%d", movement_name(e->movement_id), ns + 1,
+    snprintf(buf, sizeof buf, "next: %s %d/%d", movement_name(e->movement_id), ns + 1,
              e->set_count);
-    draw_text(ctx, buf, FONT_KEY_GOTHIC_24, GRect(2, 82, b.size.w - 4, 26));
+    draw_text(ctx, buf, FONT_KEY_GOTHIC_18, GRect(2, 84, b.size.w - 4, 20));
   }
 
-  snprintf(buf, sizeof buf, "done: %d%s  up/dn", s_actual[s_cur_ex][s_cur_set],
+  // The corrected rep count, big enough to read at a glance (you fix it here).
+  snprintf(buf, sizeof buf, "done: %d%s", s_actual[s_cur_ex][s_cur_set],
            cur_timed() ? " s" : "");
-  draw_text(ctx, buf, FONT_KEY_GOTHIC_24, GRect(2, 108, b.size.w - 4, 26));
+  draw_text(ctx, buf, FONT_KEY_GOTHIC_28_BOLD, GRect(2, 104, b.size.w - 4, 32));
 
-  draw_text(ctx, "select = go", FONT_KEY_GOTHIC_18,
+  draw_text(ctx, "up/dn fix  ·  select go", FONT_KEY_GOTHIC_18,
             GRect(2, b.size.h - 24, b.size.w - 4, 22));
 }
 
