@@ -115,18 +115,20 @@ function setRow(ex, s, j) {
   const row = el('div', 'row');
   row.appendChild(el('span', 'muted', 'Set ' + (j + 1)));
 
+  row.appendChild(el('span', 'muted', ex.is_timed ? 'hold:' : 'reps:'));
   const target = el('input');
   target.type = 'number'; target.min = ex.is_amrap ? 0 : 1;
   target.max = ex.is_timed ? 255 : 100; target.value = s.target;
   target.oninput = () => { s.target = Number(target.value); };
   row.appendChild(target);
-  row.appendChild(el('span', 'muted', ex.is_timed ? 'sec hold' : 'reps'));
+  if (ex.is_timed) row.appendChild(el('span', 'muted', 's'));
 
+  row.appendChild(el('span', 'muted', 'rest:'));
   const rest = el('input');
   rest.type = 'number'; rest.min = 0; rest.max = 1275; rest.step = 5; rest.value = s.rest_secs;
   rest.oninput = () => { s.rest_secs = Number(rest.value); };
   row.appendChild(rest);
-  row.appendChild(el('span', 'muted', 'sec rest'));
+  row.appendChild(el('span', 'muted', 's'));
 
   const rm = el('button', 'small', '×');
   rm.onclick = () => { ex.sets.splice(j, 1); render(); };

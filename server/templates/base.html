@@ -67,6 +67,9 @@
     animation: rise .32s cubic-bezier(.2,.7,.3,1) both;
   }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  a.cardlink { transition: border-color .15s, transform .15s, box-shadow .15s; }
+  a.cardlink:hover { border-color: #cfd2c6; transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(20,22,16,.05), 0 10px 26px rgba(20,22,16,.07); }
 
   .badge {
     display: inline-flex; align-items: center; font-family: var(--font-pixel);

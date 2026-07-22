@@ -25,30 +25,17 @@
 <p><a class="btn primary" href="/workouts/new">New workout</a></p>
 
 {% for c in cards %}
-<div class="card">
+<a class="card cardlink" href="/workouts/{{ c.id }}" style="display:block;text-decoration:none;color:inherit">
   <strong>{{ c.title }}</strong>
   {% if c.slot_label != "" %}<span class="badge accent">{{ c.slot_label }}</span>{% endif %}
   {% if c.is_public %}<span class="badge">public</span>{% endif %}
   <span class="badge">{{ c.exercise_count }} exercises · {{ c.set_count }} sets</span>
   <span class="badge">{{ c.packed_size }} B / {{ pack_cap }} B packed</span>
-  {% if c.description != "" %}<p class="muted">{{ c.description }}</p>{% endif %}
-  <div class="row">
-    <a class="btn" href="/workouts/{{ c.id }}/edit">Edit</a>
-    <button class="small" onclick="deleteWorkout({{ c.id }})">Delete</button>
-  </div>
-</div>
+  {% if c.description != "" %}<p class="muted" style="margin-bottom:0">{{ c.description }}</p>{% endif %}
+</a>
 {% endfor %}
 
 {% if cards.is_empty() %}
 <p class="muted">No workouts yet — create one and assign it a watch slot.</p>
 {% endif %}
-
-<script>
-async function deleteWorkout(id) {
-  if (!confirm('Delete this workout?')) return;
-  const res = await fetch('/api/workouts/' + id, { method: 'DELETE' });
-  if (res.ok) location.reload();
-  else alert('Delete failed: ' + await res.text());
-}
-</script>
 {% endblock %}

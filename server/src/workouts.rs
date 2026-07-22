@@ -284,6 +284,27 @@ pub fn save(
     })
 }
 
+/// Duplicate a workout (unassigned to any slot, not public) as a new draft.
+/// Returns the new workout id.
+pub fn duplicate(conn: &mut SqliteConnection, user_id: i32, id: i32) -> Result<i32, AppError> {
+    let w: Workout = workouts::table
+        .filter(workouts::id.eq(id))
+        .filter(workouts::owner_id.eq(user_id))
+        .first(conn)
+        .optional()?
+        .ok_or(AppError::NotFound)?;
+    let details = load_details(conn, &[w.id])?;
+    let rows = details.get(&w.id).cloned().unwrap_or_default();
+    let mut input = to_input(&rows, &w, None);
+    input.title = format!("{} (copy)", w.title);
+    if input.title.chars().count() > 64 {
+        input.title = input.title.chars().take(64).collect();
+    }
+    input.is_public = false;
+    let (new_id, _) = save(conn, user_id, None, &input)?;
+    Ok(new_id)
+}
+
 pub fn slot_map(conn: &mut SqliteConnection, user_id: i32) -> Result<HashMap<i32, i32>, AppError> {
     // workout_id -> slot
     let rows: Vec<(i32, i32)> = user_slots::table

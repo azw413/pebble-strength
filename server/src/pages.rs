@@ -631,3 +631,129 @@ pub async fn font(Path(name): Path<String>) -> axum::response::Response {
     )
         .into_response()
 }
+
+// ---- Read-only workout view ----
+
+pub struct ViewSet {
+    pub n: usize,
+    pub kind: String, // "reps" or "hold"
+    pub target: i32,
+    pub rest: i32,
+}
+
+pub struct ViewExercise {
+    pub name: String,
+    pub meta: String,
+    pub sets: Vec<ViewSet>,
+}
+
+#[derive(Template)]
+#[template(path = "workout_view.html")]
+struct WorkoutViewTemplate {
+    id: i32,
+    title: String,
+    description: String,
+    slot_label: String,
+    is_public: bool,
+    packed_size: usize,
+    pack_cap: usize,
+    exercises: Vec<ViewExercise>,
+}
+
+pub async fn workout_view(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+) -> Result<Html<String>, AppError> {
+    let (title, description, is_public, slot_label, packed_size, exercises) =
+        db::run(&state.pool, move |conn| {
+            let w: Workout = workouts::table
+                .filter(workouts::id.eq(id))
+                .filter(workouts::owner_id.eq(user.id))
+                .first(conn)
+                .optional()?
+                .ok_or(AppError::NotFound)?;
+            let details = wk::load_details(conn, &[w.id])?;
+            let rows = details.get(&w.id).cloned().unwrap_or_default();
+            let packed_size = pack::pack_workout(&w.title, &wk::to_pack_exercises(&rows))
+                .map(|b| b.len())
+                .unwrap_or(0);
+            let slot_label = wk::slot_map(conn, user.id)?
+                .get(&w.id)
+                .map(|s| format!("watch slot {s}"))
+                .unwrap_or_default();
+            let exercises = rows
+                .into_iter()
+                .map(|(we, ex, sets)| {
+                    let mut meta = Vec::new();
+                    if we.weight_kg > 0.0 {
+                        meta.push(format!("{} kg", we.weight_kg));
+                    }
+                    if we.is_timed {
+                        meta.push("timed hold".to_string());
+                    }
+                    if we.is_amrap {
+                        meta.push("AMRAP".to_string());
+                    }
+                    ViewExercise {
+                        name: ex.name,
+                        meta: meta.join(" · "),
+                        sets: sets
+                            .iter()
+                            .enumerate()
+                            .map(|(i, s)| ViewSet {
+                                n: i + 1,
+                                kind: if we.is_timed { "hold".into() } else { "reps".into() },
+                                target: s.target,
+                                rest: s.rest_secs,
+                            })
+                            .collect(),
+                    }
+                })
+                .collect::<Vec<_>>();
+            Ok((w.title, w.description, w.is_public, slot_label, packed_size, exercises))
+        })
+        .await?;
+
+    let tpl = WorkoutViewTemplate {
+        id,
+        title,
+        description,
+        slot_label,
+        is_public,
+        packed_size,
+        pack_cap: pack::PACK_CAP,
+        exercises,
+    };
+    Ok(Html(tpl.render()?))
+}
+
+pub async fn copy_workout(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+) -> Result<Redirect, AppError> {
+    let new_id = db::run(&state.pool, move |conn| wk::duplicate(conn, user.id, id)).await?;
+    Ok(Redirect::to(&format!("/workouts/{new_id}")))
+}
+
+pub async fn delete_workout_page(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+) -> Result<Redirect, AppError> {
+    db::run(&state.pool, move |conn| {
+        let n = diesel::delete(
+            workouts::table
+                .filter(workouts::id.eq(id))
+                .filter(workouts::owner_id.eq(user.id)),
+        )
+        .execute(conn)?;
+        if n == 0 {
+            return Err(AppError::NotFound);
+        }
+        Ok(())
+    })
+    .await?;
+    Ok(Redirect::to("/workouts"))
+}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/sessions">Sessions</a>
+  <a href="/recordings">Recordings</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<p class="muted"><a href="/workouts" style="color:inherit">← Workouts</a></p>
+
+<div class="row" style="justify-content:space-between;align-items:flex-start">
+  <h1 style="margin:0">{{ title }}</h1>
+  <span class="eyebrow" style="margin:0">read-only</span>
+</div>
+
+<div class="card">
+  {% if slot_label != "" %}<span class="badge accent">{{ slot_label }}</span>{% endif %}
+  {% if is_public %}<span class="badge">public</span>{% endif %}
+  <span class="badge">{{ exercises.len() }} exercises</span>
+  <span class="badge">{{ packed_size }} B / {{ pack_cap }} B packed</span>
+  {% if description != "" %}<p class="muted" style="margin-bottom:0">{{ description }}</p>{% endif %}
+</div>
+
+{% for e in exercises %}
+<div class="card">
+  <strong>{{ e.name }}</strong>
+  {% if e.meta != "" %}<span class="muted"> — {{ e.meta }}</span>{% endif %}
+  {% for s in e.sets %}
+  <div class="row" style="margin:0.35rem 0;gap:1.4rem">
+    <span class="muted" style="min-width:3.2rem">Set {{ s.n }}</span>
+    <span>{{ s.kind }}: <strong>{{ s.target }}</strong>{% if s.kind == "hold" %} s{% endif %}</span>
+    <span>rest: <strong>{{ s.rest }}</strong> s</span>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<div class="row" style="margin-top:1.2rem">
+  <a class="btn primary" href="/workouts/{{ id }}/edit">Edit</a>
+  <form method="post" action="/workouts/{{ id }}/copy" style="margin:0">
+    <button class="btn" type="submit">Copy to new</button>
+  </form>
+  <form method="post" action="/workouts/{{ id }}/delete" style="margin:0"
+        onsubmit="return confirm('Delete “{{ title }}”? This cannot be undone.')">
+    <button class="btn" type="submit" style="color:var(--accent)">Delete</button>
+  </form>
+</div>
+{% endblock %}
