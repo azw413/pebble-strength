@@ -19,14 +19,40 @@
 {% when Some with (token) %}
 <div class="tokenbox">
   <strong>Device token created — copy it now, it is shown only once:</strong>
-  <p><code>{{ token }}</code></p>
-  <p class="muted">Try it: <code>curl -H "Authorization: Bearer {{ token }}" http://localhost:8080/api/device/workouts</code></p>
+  <div class="row" style="margin-top:0.6rem;flex-wrap:nowrap">
+    <code id="tok" style="flex:1;word-break:break-all;padding:0.5rem 0.6rem">{{ token }}</code>
+    <button type="button" class="primary" id="copytok">Copy</button>
+  </div>
+  <p class="muted" style="margin-bottom:0">Paste it into the <strong>Strength</strong> app's
+  settings (the gear icon) on your phone so this watch syncs to your account.</p>
 </div>
+<script>
+  (function () {
+    var btn = document.getElementById('copytok'), tok = document.getElementById('tok');
+    if (!btn) return;
+    btn.onclick = function () {
+      var text = tok.textContent;
+      var done = function () { btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = 'Copy'; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, selectFallback);
+      } else {
+        selectFallback();
+      }
+    };
+    function selectFallback() {
+      var r = document.createRange();
+      r.selectNode(tok);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+  })();
+</script>
 {% when None %}
 {% endmatch %}
 
-<p class="muted">The phone app will create its own token during pairing (SPEC §8.1).
-Tokens minted here are for development and testing.</p>
+<p class="muted">Create a token per watch, then paste it into the Strength app's
+settings on your phone. Revoking a token immediately stops that device syncing.</p>
 
 <form method="post" action="/devices" class="row">
   <input type="text" name="label" placeholder="Label (e.g. Pebble Time)">
