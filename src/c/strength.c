@@ -1,36 +1,63 @@
 #include <pebble.h>
-#include "embedded_workouts.h"
 #include "packfmt.h"
 #include "recorder.h"
 #include "ui_preview.h"
+#include "workouts_store.h"
 
-// Home: list of synced workouts. M1 ships them embedded in the binary
-// (generated from the dev server); real AppMessage sync replaces this in M3.
+// Home: list of the watch's workouts. Served from persistent storage (or the
+// embedded defaults until the first sync), and refreshed over AppMessage from
+// the phone/server on launch — see workouts_store.c and src/pkjs/index.js (M3).
 
 static Window *s_window;
 static MenuLayer *s_menu;
 static PackedWorkout s_workout;  // unpacked on selection, shown by preview
 
 static uint16_t get_num_rows(MenuLayer *menu, uint16_t section, void *ctx) {
-  return EMBEDDED_WORKOUT_COUNT;
+  return workouts_count();
 }
 
 static void draw_row(GContext *ctx, const Layer *cell, MenuIndex *index, void *context) {
-  const EmbeddedWorkout *w = &EMBEDDED_WORKOUTS[index->row];
+  uint16_t len;
+  const uint8_t *data = workouts_get(index->row, &len);
+  if (!data || len < 26) {
+    return;
+  }
   char name[25];
   char sub[24];
-  memcpy(name, w->data, 24);
+  memcpy(name, data, 24);
   name[24] = '\0';
-  snprintf(sub, sizeof sub, "%d exercises", w->data[25]);
+  snprintf(sub, sizeof sub, "%d exercises", data[25]);
   menu_cell_basic_draw(ctx, cell, name, sub, NULL);
 }
 
 static void select_click(MenuLayer *menu, MenuIndex *index, void *ctx) {
-  const EmbeddedWorkout *w = &EMBEDDED_WORKOUTS[index->row];
-  if (packfmt_unpack(w->data, w->len, &s_workout)) {
+  uint16_t len;
+  const uint8_t *data = workouts_get(index->row, &len);
+  if (data && packfmt_unpack(data, len, &s_workout)) {
     preview_window_push(&s_workout);
   } else {
     APP_LOG(APP_LOG_LEVEL_ERROR, "failed to unpack workout %d", index->row);
+  }
+}
+
+// Workout sync from the phone: {WK_TOTAL, WK_INDEX, WK_DATA} per workout, then
+// {WK_DONE}. Accumulate, commit on done, and refresh the menu.
+static void inbox_received(DictionaryIterator *iter, void *ctx) {
+  Tuple *idx = dict_find(iter, MESSAGE_KEY_WK_INDEX);
+  Tuple *data = dict_find(iter, MESSAGE_KEY_WK_DATA);
+  Tuple *total = dict_find(iter, MESSAGE_KEY_WK_TOTAL);
+  Tuple *done = dict_find(iter, MESSAGE_KEY_WK_DONE);
+
+  if (idx && data) {
+    if (idx->value->uint8 == 0 && total) {
+      workouts_sync_begin(total->value->uint8);
+    }
+    workouts_sync_set(idx->value->uint8, data->value->data, data->length);
+  }
+  if (done) {
+    if (workouts_sync_commit() && s_menu) {
+      menu_layer_reload_data(s_menu);
+    }
   }
 }
 
@@ -51,10 +78,15 @@ static void window_load(Window *window) {
 
 static void window_unload(Window *window) {
   menu_layer_destroy(s_menu);
+  s_menu = NULL;
 }
 
 int main(void) {
-  recorder_init();
+  recorder_init();          // registers outbox handlers
+  workouts_init();          // load persisted / embedded workouts
+  app_message_register_inbox_received(inbox_received);
+  app_message_open(512, RECORDER_OUTBOX_SIZE);
+
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers){
       .load = window_load,

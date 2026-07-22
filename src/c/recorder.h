@@ -1,6 +1,9 @@
 #pragma once
 #include <pebble.h>
 
+// Outbox must hold one chunk message; main opens AppMessage with this size.
+#define RECORDER_OUTBOX_SIZE (1500 + 128)
+
 // Set recorder (SPEC.md §6): captures raw 25 Hz accel samples during a set,
 // then ships them to the phone over AppMessage in chunks. PebbleKit JS
 // reassembles and POSTs to the server as the labelled tuning corpus.

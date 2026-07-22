@@ -181,7 +181,7 @@ void recorder_init(void) {
   s_snd = -1;
   app_message_register_outbox_sent(outbox_sent);
   app_message_register_outbox_failed(outbox_failed);
-  app_message_open(256, CHUNK_BYTES + 128);
+  // AppMessage is opened once in main() (shared with workout-sync inbox).
 }
 
 bool recorder_is_capturing(void) {

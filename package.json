@@ -32,7 +32,11 @@
       "SET_INDEX",
       "ACTUAL",
       "TRUNCATED",
-      "WORKOUT_NAME"
+      "WORKOUT_NAME",
+      "WK_TOTAL",
+      "WK_INDEX",
+      "WK_DATA",
+      "WK_DONE"
     ],
     "resources": {
       "media": []
