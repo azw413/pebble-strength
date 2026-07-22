@@ -17,6 +17,15 @@ fn script_json<T: serde::Serialize>(value: &T) -> Result<String, AppError> {
     Ok(s.replace('<', "\\u003c"))
 }
 
+/// Gate admin-only pages: if ADMIN_EMAIL is set, only that account passes;
+/// everyone else gets a 404 (so the page's existence isn't revealed).
+fn require_admin(state: &AppState, email: &str) -> Result<(), AppError> {
+    match &state.cfg.admin_email {
+        Some(a) if !email.eq_ignore_ascii_case(a) => Err(AppError::NotFound),
+        _ => Ok(()),
+    }
+}
+
 #[derive(Template)]
 #[template(path = "landing.html")]
 struct LandingTemplate {
@@ -383,6 +392,7 @@ pub async fn recordings_page(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
 ) -> Result<Html<String>, AppError> {
+    require_admin(&state, &user.email)?; // training corpus — hidden from users
     use crate::schema::recordings;
     let rows = db::run(&state.pool, move |conn| {
         let rs: Vec<(i32, String, String, i32, i32, bool, i32, i32, bool, chrono::NaiveDateTime)> =
@@ -427,6 +437,7 @@ pub async fn recording_csv(
     CurrentUser(user): CurrentUser,
     Path(id): Path<i32>,
 ) -> Result<axum::response::Response, AppError> {
+    require_admin(&state, &user.email)?;
     use crate::schema::recordings;
     let (blob, rate) = db::run(&state.pool, move |conn| {
         let row: (Vec<u8>, i32) = recordings::table
@@ -854,12 +865,7 @@ pub async fn stats_page(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
 ) -> Result<Html<String>, AppError> {
-    // Admin gate: if ADMIN_EMAIL is configured, only that account sees /stats.
-    if let Some(admin) = &state.cfg.admin_email {
-        if !user.email.eq_ignore_ascii_case(admin) {
-            return Err(AppError::NotFound);
-        }
-    }
+    require_admin(&state, &user.email)?;
 
     let metrics = db::run(&state.pool, |conn| Ok(crate::stats::db_metrics(conn)?)).await?;
     let v = crate::stats::read_views(&state.log_dir);
