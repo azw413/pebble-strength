@@ -22,6 +22,12 @@ Regenerate with Pillow + `PressStart2P.ttf` (see the build in git history).
 
 ## Per-platform screenshots
 
-Only **basalt** (Pebble Time) is captured so far — from a physical watch. The
-Jetson can't run the emulator (pypkjs/stpyv8), so chalk/diorite/emery/aplite
-screenshots are a Mac job — see `docs/mac-handoff-screenshots.md`.
+- **basalt** (Pebble Time, 144×168): `01-home.png` … `05-summary.png` above,
+  from a physical watch.
+- **chalk** (Pebble Time Round, 180×180), **diorite** (Pebble 2, 144×168 B&W),
+  **emery** (Pebble Time 2, 200×228): `emu/<platform>-01-home.png` …
+  `<platform>-05-summary.png`, captured from the SDK emulator (same five-screen
+  story, driven via the QEMU monitor).
+- **aplite** is not captured: the app doesn't target it — the 2400-sample
+  recording buffer overflows aplite's 24 KB app RAM (linker: region `APP`
+  overflowed by ~12.7 KB).
