@@ -382,10 +382,17 @@ Server-computed aggregates rendered with uPlot on the History page:
   auto-uploads, tools/replay.py mirrors the pipeline; profile tuning against
   real wrist data ongoing)*
 - **M3 — Server & sync.** `server/` axum crate: Diesel/SQLite schema +
-  migrations, Google sign-in, workout builder, pairing-code device linking,
-  Rust binary packer + device API; PebbleKit JS relay; watch persist store;
-  multi-workout support.
+  migrations, Google sign-in, workout builder, device linking, Rust binary
+  packer + device API; PebbleKit JS relay; watch persist store; multi-workout
+  support. *(done — live at pebblestrength.app: Google sign-in, builder, packed
+  device API with per-device Bearer tokens, PebbleKit JS relay, watch
+  persistent workout store with live download on launch. Device linking is a
+  copy-paste token via the app's settings page, not the pairing-code flow —
+  deferred.)*
 - **M4 — History & polish.** Session upload, website history + CSV, watch
   history, settings, chalk/diorite layout passes, resume-after-crash.
+  *(largely done — Sessions (auto-logged + editable), Recordings + CSV export,
+  and the home analytics dashboard (volume, est. 1RM, bodyweight-over-time)
+  are shipped; watch-side history/settings and layout passes remain.)*
 - **M5 — Sharing & analytics.** Public flag + Explore page + forking;
   aggregate queries and the §8.6 charts.
