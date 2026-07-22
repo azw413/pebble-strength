@@ -77,6 +77,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(pages::home))
+        .route("/privacy.html", get(pages::privacy))
+        .route("/terms.html", get(pages::terms))
         .route("/bodyweight", post(pages::add_bodyweight))
         .route("/api/dashboard", get(api::dashboard))
         .route("/static/fonts/{name}", get(pages::font))

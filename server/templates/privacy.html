@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy — Pebble Strength{% endblock %}
+
+{% block content %}
+<p class="muted"><a href="/" style="color:inherit">← Home</a></p>
+<h1>Privacy Policy</h1>
+<p class="muted">Last updated: 22 July 2026</p>
+
+<div class="card">
+<p>Pebble Strength ("the app", "we") is a personal strength-training companion
+for Pebble smartwatches. This policy explains what data we collect, why, and
+what we do with it. Questions: <a href="mailto:azwhaley@gmail.com">azwhaley@gmail.com</a>.</p>
+</div>
+
+<h2>What we collect</h2>
+<ul>
+  <li><strong>Google account info.</strong> When you sign in with Google we
+  receive your Google account identifier, email address, and name (the
+  <code>openid</code>, <code>email</code>, and <code>profile</code> scopes). We
+  use this only to create and identify your account.</li>
+  <li><strong>Training data you create.</strong> Workouts, exercises, logged
+  sessions, and bodyweight entries.</li>
+  <li><strong>Data from your Pebble watch.</strong> When your watch is connected
+  via the companion phone app, it uploads set logs and raw accelerometer
+  recordings of your sets.</li>
+</ul>
+
+<h2>How we use it</h2>
+<ul>
+  <li>To provide the service: store and display your workouts, sessions, and
+  progress charts.</li>
+  <li>To improve on-device rep counting, we analyse the accelerometer recordings
+  you upload.</li>
+  <li>We do <strong>not</strong> sell your data, and we do <strong>not</strong>
+  use it for advertising.</li>
+</ul>
+
+<h2>Google user data</h2>
+<p>Our use of information received from Google APIs adheres to the
+<a href="https://developers.google.com/terms/api-services-user-data-policy">Google
+API Services User Data Policy</a>, including its Limited Use requirements. We use
+Google sign-in solely to authenticate you and provide the app's features; we do
+not transfer this data to others except as needed to run the service, and never
+for advertising.</p>
+
+<h2>Storage, cookies, and security</h2>
+<p>Your data is stored in a database on our server. Access is limited to
+operating the service. We set a single <code>sid</code> cookie to keep you
+signed in — there are no third-party tracking or advertising cookies.</p>
+
+<h2>Sharing</h2>
+<p>We don't share your personal data with third parties, except Google for the
+purpose of signing you in. We may disclose data if required by law.</p>
+
+<h2>Retention and deletion</h2>
+<p>We keep your data while your account is active. You can request deletion of
+your account and associated data at any time by emailing
+<a href="mailto:azwhaley@gmail.com">azwhaley@gmail.com</a>.</p>
+
+<h2>Children</h2>
+<p>The app is not directed to children under 13, and we do not knowingly collect
+their data.</p>
+
+<h2>Changes</h2>
+<p>We may update this policy; the date above reflects the latest version.
+Continued use after a change means you accept the updated policy.</p>
+
+<p class="muted" style="margin-top:2rem">See also our
+<a href="/terms.html">Terms of Service</a>.</p>
+{% endblock %}

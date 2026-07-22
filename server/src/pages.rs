@@ -757,3 +757,21 @@ pub async fn delete_workout_page(
     .await?;
     Ok(Redirect::to("/workouts"))
 }
+
+// ---- Public legal pages ----
+
+#[derive(Template)]
+#[template(path = "privacy.html")]
+struct PrivacyTemplate;
+
+#[derive(Template)]
+#[template(path = "terms.html")]
+struct TermsTemplate;
+
+pub async fn privacy() -> Result<Html<String>, AppError> {
+    Ok(Html(PrivacyTemplate.render()?))
+}
+
+pub async fn terms() -> Result<Html<String>, AppError> {
+    Ok(Html(TermsTemplate.render()?))
+}
