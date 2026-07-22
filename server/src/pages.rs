@@ -814,3 +814,13 @@ pub async fn privacy() -> Result<Html<String>, AppError> {
 pub async fn terms() -> Result<Html<String>, AppError> {
     Ok(Html(TermsTemplate.render()?))
 }
+
+#[derive(Template)]
+#[template(path = "watch_config.html")]
+struct WatchConfigTemplate;
+
+/// Public config page opened from the Pebble app's settings gear; collects the
+/// device token and hands it back to the watch app via pebblejs://close.
+pub async fn watch_config() -> Result<Html<String>, AppError> {
+    Ok(Html(WatchConfigTemplate.render()?))
+}

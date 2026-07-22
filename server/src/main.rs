@@ -79,6 +79,7 @@ async fn main() {
         .route("/", get(pages::home))
         .route("/privacy.html", get(pages::privacy))
         .route("/terms.html", get(pages::terms))
+        .route("/watch/config", get(pages::watch_config))
         .route("/bodyweight", post(pages::add_bodyweight))
         .route("/bodyweight/delete", post(pages::delete_bodyweight))
         .route("/api/dashboard", get(api::dashboard))

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strength — Watch Settings</title>
+<style>
+  body { margin: 0; padding: 1.4rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         color: #1b1c19; background: #eceee6; line-height: 1.5; }
+  h1 { font-size: 1.3rem; }
+  .card { background: #fff; border: 1px solid #e6e7df; border-radius: 16px; padding: 1.2rem; }
+  label { display: block; font-size: 0.9rem; margin: 0.9rem 0 0.3rem; font-weight: 600; }
+  input { width: 100%; box-sizing: border-box; font: inherit; padding: 0.6rem 0.7rem;
+          border: 1px solid #e6e7df; border-radius: 10px; }
+  button { margin-top: 1.2rem; width: 100%; font: inherit; font-weight: 700; padding: 0.7rem;
+           border: none; border-radius: 10px; background: #e5484d; color: #fff; cursor: pointer; }
+  .muted { color: #71766b; font-size: 0.9rem; }
+  code { background: #eceee6; padding: 0.1rem 0.3rem; border-radius: 5px; }
+</style>
+</head>
+<body>
+<h1>Strength — Watch Settings</h1>
+<p class="muted">Paste your <strong>device token</strong> so this watch can sync sets to your
+account. Get one at <code>pebblestrength.app → Devices → Add device</code> — the token is
+shown once, so copy it then.</p>
+<div class="card">
+  <form id="f">
+    <label for="token">Device token</label>
+    <input id="token" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+           placeholder="paste token">
+    <label for="server">Server</label>
+    <input id="server" type="text" autocomplete="off" spellcheck="false">
+    <button type="submit">Save</button>
+  </form>
+</div>
+<script>
+  var q = new URLSearchParams(location.search);
+  document.getElementById('token').value = q.get('token') || '';
+  document.getElementById('server').value = q.get('server') || 'https://pebblestrength.app';
+  document.getElementById('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var settings = {
+      token: document.getElementById('token').value.trim(),
+      server: (document.getElementById('server').value.trim() || 'https://pebblestrength.app')
+        .replace(/\/+$/, '')
+    };
+    // Hand the settings back to the watch app and close the config webview.
+    document.location = 'pebblejs://close#' + encodeURIComponent(JSON.stringify(settings));
+  });
+</script>
+</body>
+</html>
