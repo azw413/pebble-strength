@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Stats — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/sessions">Sessions</a>
+  <a href="/recordings">Recordings</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1>Stats</h1>
+<span class="eyebrow">Admin · private</span>
+
+<div class="row" style="margin:1rem 0">
+  {% for m in metrics %}
+  <div class="card" style="flex:1;min-width:130px;margin:0">
+    <div class="muted">{{ m.label }}</div>
+    <div style="font-size:1.7rem;font-weight:800">{{ m.total }}</div>
+    <div class="muted" style="font-size:0.82rem">
+      {% if m.delta > 0 %}<span style="color:#3f8a3f">▲ {{ m.new_7d }}</span>
+      {% else if m.delta < 0 %}<span style="color:var(--accent)">▼ {{ m.new_7d }}</span>
+      {% else %}{{ m.new_7d }}{% endif %} this week
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <span class="eyebrow">Page views</span>
+  <div class="row" style="gap:1.6rem;margin-top:0">
+    <div><div style="font-size:1.7rem;font-weight:800">{{ views_total }}</div><div class="muted">real page views</div></div>
+    <div><div style="font-size:1.7rem;font-weight:800">{{ bot_hits }}</div><div class="muted">bot / probe hits</div></div>
+  </div>
+  <svg id="viewchart" viewBox="0 0 680 180" style="width:100%;height:auto;font:11px sans-serif;margin-top:0.6rem;display:none"></svg>
+  <div class="muted" id="viewhint"></div>
+</div>
+
+<div class="row" style="align-items:flex-start">
+  <div class="card" style="flex:1;min-width:260px;margin:0">
+    <span class="eyebrow">Top pages</span>
+    {% if top_pages.is_empty() %}<p class="muted">No data yet.</p>{% else %}
+    <table class="list" style="width:100%">
+      <tbody>
+        {% for p in top_pages %}<tr><td>{{ p.key }}</td><td class="num">{{ p.n }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+  <div class="card" style="flex:1;min-width:260px;margin:0">
+    <span class="eyebrow">Top referrers</span>
+    {% if top_referrers.is_empty() %}<p class="muted">No external referrers yet.</p>{% else %}
+    <table class="list" style="width:100%">
+      <tbody>
+        {% for r in top_referrers %}<tr><td>{{ r.key }}</td><td class="num">{{ r.n }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+const SVGNS = 'http://www.w3.org/2000/svg';
+const VIEWS = {{ views_json|safe }};
+function svg(t, a) { const n = document.createElementNS(SVGNS, t); for (const k in a) n.setAttribute(k, a[k]); return n; }
+
+(function drawViews() {
+  const el = document.getElementById('viewchart'), hint = document.getElementById('viewhint');
+  if (VIEWS.length < 2) { hint.textContent = VIEWS.length ? VIEWS[0].n + ' views on ' + VIEWS[0].day : ''; return; }
+  el.style.display = '';
+  const W = 680, H = 180, m = { t: 12, r: 16, b: 26, l: 34 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const n = VIEWS.length, maxN = Math.max(1, ...VIEWS.map(v => v.n));
+  const X = i => m.l + iw * (n === 1 ? 0.5 : i / (n - 1));
+  const Y = v => m.t + ih * (1 - v / maxN);
+  el.appendChild(svg('line', { x1: m.l, y1: m.t + ih, x2: m.l + iw, y2: m.t + ih, stroke: '#ccc' }));
+  for (let i = 0; i <= 2; i++) {
+    const y = m.t + ih - ih * i / 2;
+    const t = svg('text', { x: m.l - 6, y: y + 3, 'text-anchor': 'end', fill: '#777' });
+    t.textContent = Math.round(maxN * i / 2);
+    el.appendChild(t);
+  }
+  let d = '';
+  VIEWS.forEach((v, i) => { d += (i ? ' L' : 'M') + X(i) + ' ' + Y(v.n); el.appendChild(svg('circle', { cx: X(i), cy: Y(v.n), r: 2.5, fill: '#e5484d' })); });
+  el.appendChild(svg('path', { d, fill: 'none', stroke: '#e5484d', 'stroke-width': 2 }));
+  [0, n - 1].forEach(i => { const t = svg('text', { x: X(i), y: m.t + ih + 16, 'text-anchor': i ? 'end' : 'start', fill: '#777' }); t.textContent = VIEWS[i].day.slice(5); el.appendChild(t); });
+})();
+</script>
+{% endblock %}

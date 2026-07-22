@@ -824,3 +824,64 @@ struct WatchConfigTemplate;
 pub async fn watch_config() -> Result<Html<String>, AppError> {
     Ok(Html(WatchConfigTemplate.render()?))
 }
+
+// ---- Admin stats dashboard (unlisted; gated to the admin email) ----
+
+pub struct StatCard {
+    pub label: String,
+    pub total: i64,
+    pub new_7d: i64,
+    pub delta: i64,
+}
+
+pub struct KV {
+    pub key: String,
+    pub n: u64,
+}
+
+#[derive(Template)]
+#[template(path = "stats.html")]
+struct StatsTemplate {
+    metrics: Vec<StatCard>,
+    views_total: u64,
+    bot_hits: u64,
+    views_json: String,
+    top_pages: Vec<KV>,
+    top_referrers: Vec<KV>,
+}
+
+pub async fn stats_page(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+) -> Result<Html<String>, AppError> {
+    // Admin gate: if ADMIN_EMAIL is configured, only that account sees /stats.
+    if let Some(admin) = &state.cfg.admin_email {
+        if !user.email.eq_ignore_ascii_case(admin) {
+            return Err(AppError::NotFound);
+        }
+    }
+
+    let metrics = db::run(&state.pool, |conn| Ok(crate::stats::db_metrics(conn)?)).await?;
+    let v = crate::stats::read_views(&state.log_dir);
+    let by_day: Vec<serde_json::Value> = v
+        .by_day
+        .iter()
+        .map(|d| serde_json::json!({ "day": d.day, "n": d.n }))
+        .collect();
+
+    let tpl = StatsTemplate {
+        metrics: metrics
+            .into_iter()
+            .map(|m| {
+                let delta = m.delta();
+                StatCard { label: m.label, total: m.total, new_7d: m.new_7d, delta }
+            })
+            .collect(),
+        views_total: v.total,
+        bot_hits: v.bot_hits,
+        views_json: script_json(&by_day)?,
+        top_pages: v.top_pages.into_iter().map(|k| KV { key: k.key, n: k.n }).collect(),
+        top_referrers: v.top_referrers.into_iter().map(|k| KV { key: k.key, n: k.n }).collect(),
+    };
+    Ok(Html(tpl.render()?))
+}

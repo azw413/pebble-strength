@@ -11,9 +11,11 @@ mod sample;
 mod schema;
 mod seed;
 mod sessions;
+mod stats;
 mod workouts;
 
 use std::env;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::routing::{get, post, put};
@@ -27,6 +29,7 @@ pub struct Config {
     pub google_client_id: Option<String>,
     pub google_client_secret: Option<String>,
     pub dev_login: bool,
+    pub admin_email: Option<String>,
 }
 
 #[derive(Clone)]
@@ -34,6 +37,8 @@ pub struct AppState {
     pub pool: db::Pool,
     pub cfg: Arc<Config>,
     pub http: reqwest::Client,
+    pub log_dir: PathBuf,
+    pub log_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 #[tokio::main]
@@ -45,7 +50,10 @@ async fn main() {
         google_client_id: env::var("GOOGLE_CLIENT_ID").ok().filter(|s| !s.is_empty()),
         google_client_secret: env::var("GOOGLE_CLIENT_SECRET").ok().filter(|s| !s.is_empty()),
         dev_login: env::var("DEV_LOGIN").map(|v| v == "1").unwrap_or(false),
+        admin_email: env::var("ADMIN_EMAIL").ok().filter(|s| !s.is_empty()),
     };
+    let log_dir = PathBuf::from(env::var("ANALYTICS_DIR").unwrap_or_else(|_| "analytics".to_string()));
+    let _ = std::fs::create_dir_all(&log_dir);
 
     let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "strength.db".to_string());
     let pool = db::init_pool(&database_url);
@@ -73,6 +81,8 @@ async fn main() {
         pool,
         cfg: Arc::new(cfg),
         http: reqwest::Client::new(),
+        log_dir,
+        log_lock: Arc::new(tokio::sync::Mutex::new(())),
     };
 
     let app = Router::new()
@@ -112,6 +122,8 @@ async fn main() {
             "/api/sessions/{id}",
             put(api::update_session).delete(api::delete_session),
         )
+        .route("/stats", get(pages::stats_page))
+        .layer(axum::middleware::from_fn_with_state(state.clone(), stats::log_pageview))
         .with_state(state);
 
     let bind_host = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1".to_string());
