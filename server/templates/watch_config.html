@@ -16,13 +16,29 @@
            border: none; border-radius: 10px; background: #e5484d; color: #fff; cursor: pointer; }
   .muted { color: #71766b; font-size: 0.9rem; }
   code { background: #eceee6; padding: 0.1rem 0.3rem; border-radius: 5px; }
+  a { color: #e5484d; }
+  ol { padding-left: 1.3rem; margin: 0.4rem 0; }
+  ol li { margin: 0.3rem 0; }
+  .card + .card { margin-top: 0.9rem; }
 </style>
 </head>
 <body>
 <h1>Strength — Watch Settings</h1>
-<p class="muted">Paste your <strong>device token</strong> so this watch can sync sets to your
-account. Get one at <code>pebblestrength.app → Devices → Add device</code> — the token is
-shown once, so copy it then.</p>
+<p class="muted">Link this watch to your account by pasting a <strong>device token</strong>.</p>
+
+<div class="card">
+  <strong>Get a token</strong>
+  <ol class="muted">
+    <li>Open <a href="https://pebblestrength.app/devices" target="_blank" rel="noopener">pebblestrength.app/devices&nbsp;↗</a>
+      in your phone's browser and sign in with Google.</li>
+    <li>Tap <strong>Create device token</strong>, then <strong>Copy</strong>.</li>
+    <li>Come back here and paste it below.</li>
+  </ol>
+  <p class="muted" style="font-size:0.8rem;margin-bottom:0">If that link opens inside this
+  window instead of your browser, open <code>pebblestrength.app/devices</code> in Safari or
+  Chrome yourself — Google sign-in doesn't work in this embedded window.</p>
+</div>
+
 <div class="card">
   <form id="f">
     <label for="token">Device token</label>

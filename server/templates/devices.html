@@ -15,6 +15,11 @@
 {% block content %}
 <h1>Devices</h1>
 
+<p class="muted">Linking a watch? Open this page <strong>on your phone's browser</strong> —
+create a token, tap <strong>Copy</strong>, then paste it into the Strength app's
+<strong>Settings</strong> (gear icon). Doing it on the same phone means the copied
+token is right there on your clipboard to paste.</p>
+
 {% match new_token %}
 {% when Some with (token) %}
 <div class="tokenbox">
