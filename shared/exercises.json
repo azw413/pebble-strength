@@ -79,7 +79,17 @@
       "category": "push",
       "equipment": "bodyweight",
       "loadable": false,
-      "unilateral": false
+      "unilateral": false,
+      "profile": {
+        "axis": "z",
+        "lp_ms": 500,
+        "hp_ms": 3000,
+        "thr_pct": 30,
+        "min_rep_ms": 900,
+        "min_amp": 70,
+        "warmup_ms": 700,
+        "confidence": 0.9
+      }
     },
     {
       "id": 5,

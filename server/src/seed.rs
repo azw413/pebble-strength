@@ -44,17 +44,34 @@ fn default_equipment() -> String {
     "bodyweight".to_string()
 }
 
+// Full parametric CounterConfig, as carried in shared/exercises.json. Defaults
+// match the counter_configs column defaults, so a movement that only specifies
+// e.g. min_rep_ms still gets a complete, sane config.
 #[derive(Deserialize)]
 #[serde(default)]
 struct SeedProfile {
     axis: String,
+    lp_ms: i32,
+    hp_ms: i32,
+    thr_pct: i32,
     min_rep_ms: i32,
-    smoothing: i32,
+    min_amp: i32,
+    warmup_ms: i32,
+    confidence: f32,
 }
 
 impl Default for SeedProfile {
     fn default() -> Self {
-        SeedProfile { axis: "mag".to_string(), min_rep_ms: 900, smoothing: 5 }
+        SeedProfile {
+            axis: "mag".to_string(),
+            lp_ms: 500,
+            hp_ms: 3000,
+            thr_pct: 40,
+            min_rep_ms: 900,
+            min_amp: 150,
+            warmup_ms: 0,
+            confidence: 0.0,
+        }
     }
 }
 
@@ -118,7 +135,13 @@ pub fn seed_exercises(conn: &mut SqliteConnection) -> Result<(), String> {
                 counter_configs::active.eq(true),
                 counter_configs::kind.eq(0),
                 counter_configs::axis_mode.eq(axis_mode(&e.profile.axis)),
+                counter_configs::lp_ms.eq(e.profile.lp_ms),
+                counter_configs::hp_ms.eq(e.profile.hp_ms),
+                counter_configs::thr_pct.eq(e.profile.thr_pct),
                 counter_configs::min_rep_ms.eq(e.profile.min_rep_ms),
+                counter_configs::min_amp.eq(e.profile.min_amp),
+                counter_configs::warmup_ms.eq(e.profile.warmup_ms),
+                counter_configs::confidence.eq(e.profile.confidence),
                 // enabled only for rep movements; a hold has no rep counter to run.
                 counter_configs::enabled.eq(!e.default_timed),
             ))
