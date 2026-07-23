@@ -122,18 +122,32 @@ static bool is_last_set(void) {
   return s_cur_ex == s_workout.exercise_count - 1 && s_cur_set == cur_ex()->set_count - 1;
 }
 
-static void enter_active(void) {
+// Begin capturing the current set — recorder + accel + the driving tick. Called
+// once we're actually in position: either the 3-2-1 lead-in just finished, or the
+// preceding rest counted its last 3s down (so no separate lead-in is needed).
+// Keeping the get-into-position motion *out* of the recording is what makes the
+// rep count clean.
+static void start_capture(void) {
+  if (cur_timed()) {
+    s_hold_state = HOLD_RUNNING;
+    s_hold_remaining = cur_set().target;
+  } else {
+    s_hold_state = HOLD_IDLE;  // out of the lead-in; rep views key off !cur_timed()
+  }
+  recorder_begin();
+  accel_start();
+  schedule_tick();
+}
+
+// Enter a set. `with_leadin` runs a 3-2-1 "get into position" countdown before
+// capture starts — used when there's no preceding rest (first set, zero rest, or
+// a skipped exercise). After a real rest we pass false: the rest's final 3s
+// already served as the lead-in, so capture starts immediately.
+static void enter_active(bool with_leadin) {
   s_phase = PHASE_ACTIVE;
   cancel_timer();
   if (cur_timed()) {
-    // Drop straight into the 3-2-1 lead-in (consistent with rep sets, which
-    // start immediately) — the lead-in itself is the get-into-position window.
-    s_hold_state = HOLD_LEADIN;
-    s_leadin = 3;
     s_hold_remaining = cur_set().target;
-    vibes_short_pulse();
-    schedule_tick();
-    // Accel capture starts when the hold actually starts (leadin -> running).
   } else {
     // Work timer is the headline; auto-count runs underneath it. Up/Down
     // corrects (and locks) the count, Select confirms.
@@ -144,10 +158,14 @@ static void enter_active(void) {
     uint16_t min_rep = mid < MOVEMENT_COUNT ? MOVEMENTS[mid].min_rep_ms : 900;
     uint8_t smoothing = mid < MOVEMENT_COUNT ? MOVEMENTS[mid].smoothing : 5;
     rep_counter_init(&s_rc, min_rep, smoothing);
-    recorder_begin();
-    accel_start();
-    vibes_short_pulse();  // one buzz to mark the start of the set
-    schedule_tick();      // drives the work timer
+  }
+  if (with_leadin) {
+    s_hold_state = HOLD_LEADIN;
+    s_leadin = 3;
+    vibes_short_pulse();  // "3" — get into position
+    schedule_tick();
+  } else {
+    start_capture();
   }
   redraw();
 }
@@ -162,7 +180,10 @@ static void enter_summary(void) {
   redraw();
 }
 
-static void advance_after_rest(void) {
+// `led_in` = a countdown already happened (the rest's final 3s), so the next set
+// starts capturing immediately. Otherwise (zero rest, or a rest skipped before
+// its countdown) the next set gets its own 3-2-1 lead-in.
+static void advance_after_rest(bool led_in) {
   finalize_label();
   if (s_cur_set + 1 < cur_ex()->set_count) {
     s_cur_set++;
@@ -174,7 +195,7 @@ static void advance_after_rest(void) {
       return;
     }
   }
-  enter_active();
+  enter_active(!led_in);
 }
 
 static void finish_set(uint8_t actual) {
@@ -193,7 +214,7 @@ static void finish_set(uint8_t actual) {
   }
   uint16_t rest = packfmt_rest_secs(cur_set());
   if (rest == 0) {
-    advance_after_rest();
+    advance_after_rest(false);  // no rest -> the next set gets its own lead-in
     return;
   }
   s_phase = PHASE_REST;
@@ -207,30 +228,31 @@ static void tick(void *context) {
   if (s_phase == PHASE_REST) {
     s_rest_remaining--;
     if (s_rest_remaining <= 0) {
-      vibes_long_pulse();
-      advance_after_rest();
+      vibes_double_pulse();      // GO — the set starts now
+      advance_after_rest(true);  // the last 3s were the get-into-position lead-in
       return;
     }
-    if (s_rest_remaining == 10) {
+    // 10s warning, then a 3-2-1 countdown so you're in position as rest ends.
+    if (s_rest_remaining == 10 || s_rest_remaining <= 3) {
       vibes_short_pulse();
     }
+    schedule_tick();
+    redraw();
+  } else if (s_phase == PHASE_ACTIVE && s_hold_state == HOLD_LEADIN) {
+    // Get-into-position countdown (rep and timed sets alike). Checked before the
+    // rep branch below, since a rep set is also !cur_timed() during its lead-in.
+    s_leadin--;
+    if (s_leadin == 0) {
+      vibes_double_pulse();      // GO
+      start_capture();
+      redraw();
+      return;
+    }
+    vibes_short_pulse();
     schedule_tick();
     redraw();
   } else if (s_phase == PHASE_ACTIVE && !cur_timed()) {
     s_work_elapsed++;
-    schedule_tick();
-    redraw();
-  } else if (s_phase == PHASE_ACTIVE && s_hold_state == HOLD_LEADIN) {
-    s_leadin--;
-    if (s_leadin == 0) {
-      vibes_double_pulse();
-      s_hold_state = HOLD_RUNNING;
-      s_hold_remaining = cur_set().target;
-      recorder_begin();
-      accel_start();
-    } else {
-      vibes_short_pulse();
-    }
     schedule_tick();
     redraw();
   } else if (s_phase == PHASE_ACTIVE && s_hold_state == HOLD_RUNNING) {
@@ -278,7 +300,14 @@ static void render_active(GContext *ctx, GRect b) {
 #ifdef PBL_COLOR
   graphics_context_set_text_color(ctx, GColorDarkCandyAppleRed);
 #endif
-  if (!cur_timed()) {
+  if (s_hold_state == HOLD_LEADIN) {
+    // Get into position — the 3-2-1 before capture starts (rep and timed alike).
+    snprintf(buf, sizeof buf, "%d", s_leadin);
+    draw_text(ctx, buf, FONT_HUGE_NUM, big);
+    graphics_context_set_text_color(ctx, GColorBlack);
+    draw_text(ctx, "get ready", FONT_KEY_GOTHIC_28_BOLD, sub);
+    draw_text(ctx, "get into position", FONT_KEY_GOTHIC_18, foot);
+  } else if (!cur_timed()) {
     // Reps are the headline — the big count you read and correct. (BITHAM has
     // the '/', unlike the digits-only huge font.) Work timer sits small below.
     if (cur_amrap()) {
@@ -297,11 +326,6 @@ static void render_active(GContext *ctx, GRect b) {
     graphics_context_set_text_color(ctx, GColorBlack);
     draw_text(ctx, "second hold", FONT_KEY_GOTHIC_28_BOLD, sub);
     draw_text(ctx, "select = start", FONT_KEY_GOTHIC_18, foot);
-  } else if (s_hold_state == HOLD_LEADIN) {
-    snprintf(buf, sizeof buf, "%d", s_leadin);
-    draw_text(ctx, buf, FONT_HUGE_NUM, big);
-    graphics_context_set_text_color(ctx, GColorBlack);
-    draw_text(ctx, "get ready", FONT_KEY_GOTHIC_28_BOLD, sub);
   } else {
     snprintf(buf, sizeof buf, "%d", s_hold_remaining);
     draw_text(ctx, buf, FONT_HUGE_NUM, big);
@@ -313,12 +337,20 @@ static void render_active(GContext *ctx, GRect b) {
 
 static void render_rest(GContext *ctx, GRect b) {
   char buf[48];
-  draw_text(ctx, "Rest", FONT_KEY_GOTHIC_24_BOLD, GRect(2, 0, b.size.w - 4, 28));
+  // The last 3s of rest double as the get-into-position countdown for the next
+  // set, so capture starts clean the instant rest hits zero.
+  bool leadin = s_rest_remaining <= 3;
+  draw_text(ctx, leadin ? "Get ready" : "Rest", FONT_KEY_GOTHIC_24_BOLD,
+            GRect(2, 0, b.size.w - 4, 28));
 
 #ifdef PBL_COLOR
-  graphics_context_set_text_color(ctx, GColorDukeBlue);
+  graphics_context_set_text_color(ctx, leadin ? GColorDarkCandyAppleRed : GColorDukeBlue);
 #endif
-  snprintf(buf, sizeof buf, "%d:%02d", s_rest_remaining / 60, s_rest_remaining % 60);
+  if (leadin) {
+    snprintf(buf, sizeof buf, "%d", s_rest_remaining);  // 3 · 2 · 1
+  } else {
+    snprintf(buf, sizeof buf, "%d:%02d", s_rest_remaining / 60, s_rest_remaining % 60);
+  }
   draw_text(ctx, buf, FONT_HUGE_NUM, GRect(0, 26, b.size.w, 54));
   graphics_context_set_text_color(ctx, GColorBlack);
 
@@ -389,7 +421,7 @@ static void layer_update(Layer *layer, GContext *ctx) {
 // Locks the count so the untuned auto-counter can't overwrite the fix, which
 // is what previously made the buttons feel dead.
 static void adjust(int delta) {
-  if (s_phase == PHASE_ACTIVE && !cur_timed()) {
+  if (s_phase == PHASE_ACTIVE && !cur_timed() && s_hold_state != HOLD_LEADIN) {
     s_count_locked = true;
     s_counter += delta;
     if (s_counter < 0) s_counter = 0;
@@ -410,6 +442,13 @@ static void down_click(ClickRecognizerRef ref, void *ctx) { adjust(-1); }
 static void select_click(ClickRecognizerRef ref, void *ctx) {
   switch (s_phase) {
     case PHASE_ACTIVE:
+      if (s_hold_state == HOLD_LEADIN) {
+        // Skip the get-into-position countdown and start capturing now.
+        vibes_double_pulse();
+        start_capture();
+        redraw();
+        break;
+      }
       if (cur_timed()) {
         if (s_hold_state == HOLD_IDLE) {
           s_hold_state = HOLD_LEADIN;
@@ -425,7 +464,9 @@ static void select_click(ClickRecognizerRef ref, void *ctx) {
       }
       break;
     case PHASE_REST:
-      advance_after_rest();
+      // Already in the last-3s countdown -> you're in position, so go straight
+      // in; otherwise give the next set its own lead-in.
+      advance_after_rest(s_rest_remaining <= 3);
       break;
     case PHASE_SUMMARY:
       window_stack_pop(true);
@@ -447,7 +488,7 @@ static void action_performed(ActionMenu *menu, const ActionMenuItem *item, void 
       if (s_cur_ex >= s_workout.exercise_count) {
         enter_summary();
       } else {
-        enter_active();
+        enter_active(true);  // new exercise -> get-into-position lead-in
       }
       break;
     case ACTION_END_WORKOUT:
@@ -537,5 +578,5 @@ void session_window_push(const PackedWorkout *workout) {
   });
   window_set_click_config_provider(s_window, click_config);
   window_stack_push(s_window, true);
-  enter_active();
+  enter_active(true);  // first set -> 3-2-1 get-into-position lead-in
 }
