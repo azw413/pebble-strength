@@ -274,6 +274,13 @@ static void draw_text(GContext *ctx, const char *text, const char *font_key, GRe
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 }
 
+// Same, but wraps onto a second line instead of ellipsizing — for longer
+// strings like "Next: 20s Bulgarian Split Squat".
+static void draw_text_wrap(GContext *ctx, const char *text, const char *font_key, GRect box) {
+  graphics_draw_text(ctx, text, fonts_get_system_font(font_key), box,
+                     GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+}
+
 // NB: ROBOTO_BOLD_SUBSET_49 is a subset font — digits and ':' only. Any string
 // containing letters must use a GOTHIC face or it renders blank.
 #define FONT_HUGE_NUM FONT_KEY_ROBOTO_BOLD_SUBSET_49
@@ -341,7 +348,7 @@ static void render_rest(GContext *ctx, GRect b) {
   // set, so capture starts clean the instant rest hits zero.
   bool leadin = s_rest_remaining <= 3;
   draw_text(ctx, leadin ? "Get ready" : "Rest", FONT_KEY_GOTHIC_24_BOLD,
-            GRect(2, 0, b.size.w - 4, 28));
+            GRect(2, 0, b.size.w - 4, 22));
 
 #ifdef PBL_COLOR
   graphics_context_set_text_color(ctx, leadin ? GColorDarkCandyAppleRed : GColorDukeBlue);
@@ -351,10 +358,15 @@ static void render_rest(GContext *ctx, GRect b) {
   } else {
     snprintf(buf, sizeof buf, "%d:%02d", s_rest_remaining / 60, s_rest_remaining % 60);
   }
-  draw_text(ctx, buf, FONT_HUGE_NUM, GRect(0, 26, b.size.w, 54));
+  draw_text(ctx, buf, FONT_HUGE_NUM, GRect(0, 20, b.size.w, 50));
   graphics_context_set_text_color(ctx, GColorBlack);
 
-  // What's next after this rest.
+  // The set you just finished — correct it here with Up/Down.
+  snprintf(buf, sizeof buf, "done: %d%s", s_actual[s_cur_ex][s_cur_set],
+           cur_timed() ? " s" : "");
+  draw_text(ctx, buf, FONT_KEY_GOTHIC_28_BOLD, GRect(2, 68, b.size.w - 4, 30));
+
+  // What's coming up — the thing you're resting for — in red, with its target.
   uint8_t nx = s_cur_ex, ns = s_cur_set + 1;
   if (ns >= cur_ex()->set_count) {
     nx++;
@@ -362,18 +374,24 @@ static void render_rest(GContext *ctx, GRect b) {
   }
   if (nx < s_workout.exercise_count) {
     const PackExercise *e = &s_workout.exercises[nx];
-    snprintf(buf, sizeof buf, "next: %s %d/%d", movement_name(e->movement_id), ns + 1,
-             e->set_count);
-    draw_text(ctx, buf, FONT_KEY_GOTHIC_18, GRect(2, 84, b.size.w - 4, 20));
+    uint8_t target = e->sets[ns].target;
+    const char *name = movement_name(e->movement_id);
+    if (e->flags & PACK_FLAG_TIMED) {
+      snprintf(buf, sizeof buf, "Next: %ds %s", target, name);
+    } else if (e->flags & PACK_FLAG_AMRAP) {
+      snprintf(buf, sizeof buf, "Next: %s", name);
+    } else {
+      snprintf(buf, sizeof buf, "Next: %d %s", target, name);
+    }
+#ifdef PBL_COLOR
+    graphics_context_set_text_color(ctx, GColorDarkCandyAppleRed);
+#endif
+    draw_text_wrap(ctx, buf, FONT_KEY_GOTHIC_24_BOLD, GRect(2, 98, b.size.w - 4, 48));
+    graphics_context_set_text_color(ctx, GColorBlack);
   }
 
-  // The corrected rep count, big enough to read at a glance (you fix it here).
-  snprintf(buf, sizeof buf, "done: %d%s", s_actual[s_cur_ex][s_cur_set],
-           cur_timed() ? " s" : "");
-  draw_text(ctx, buf, FONT_KEY_GOTHIC_28_BOLD, GRect(2, 104, b.size.w - 4, 32));
-
   draw_text(ctx, "up/dn fix  ·  select go", FONT_KEY_GOTHIC_18,
-            GRect(2, b.size.h - 24, b.size.w - 4, 22));
+            GRect(2, b.size.h - 20, b.size.w - 4, 18));
 }
 
 static void render_summary(GContext *ctx, GRect b) {
