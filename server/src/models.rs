@@ -35,11 +35,38 @@ pub struct Exercise {
     pub primary_muscles: String,
     pub secondary_muscles: String,
     pub default_timed: bool,
-    pub profile_axis: String,
-    pub profile_min_rep_ms: i32,
-    pub profile_smoothing: i32,
+    pub category: String,
+    pub equipment: String,
+    pub loadable: bool,
+    pub unilateral: bool,
+    pub description: String,
+    pub min_reps: i32,
+    pub max_reps: i32,
+    pub default_reps: i32,
+    pub default_rest_secs: i32,
     pub is_builtin: bool,
     pub load_factor: f32,
+    pub owner_user_id: Option<i32>,
+}
+
+#[derive(Queryable, Identifiable, Clone, Debug, Serialize)]
+#[diesel(table_name = counter_configs)]
+pub struct CounterConfig {
+    pub id: i32,
+    pub watch_movement_id: i32,
+    pub version: i32,
+    pub active: bool,
+    pub kind: i32,
+    pub axis_mode: i32,
+    pub lp_ms: i32,
+    pub hp_ms: i32,
+    pub thr_pct: i32,
+    pub min_rep_ms: i32,
+    pub min_amp: i32,
+    pub warmup_ms: i32,
+    pub confidence: f32,
+    pub enabled: bool,
+    pub created_at: String,
 }
 
 #[derive(Queryable, Identifiable, Clone, Debug)]

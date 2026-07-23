@@ -36,11 +36,38 @@ diesel::table! {
         primary_muscles -> Text,
         secondary_muscles -> Text,
         default_timed -> Bool,
-        profile_axis -> Text,
-        profile_min_rep_ms -> Integer,
-        profile_smoothing -> Integer,
+        category -> Text,
+        equipment -> Text,
+        loadable -> Bool,
+        unilateral -> Bool,
+        description -> Text,
+        min_reps -> Integer,
+        max_reps -> Integer,
+        default_reps -> Integer,
+        default_rest_secs -> Integer,
         is_builtin -> Bool,
         load_factor -> Float,
+        owner_user_id -> Nullable<Integer>,
+    }
+}
+
+diesel::table! {
+    counter_configs (id) {
+        id -> Integer,
+        watch_movement_id -> Integer,
+        version -> Integer,
+        active -> Bool,
+        kind -> Integer,
+        axis_mode -> Integer,
+        lp_ms -> Integer,
+        hp_ms -> Integer,
+        thr_pct -> Integer,
+        min_rep_ms -> Integer,
+        min_amp -> Integer,
+        warmup_ms -> Integer,
+        confidence -> Float,
+        enabled -> Bool,
+        created_at -> Text,
     }
 }
 
@@ -156,6 +183,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     web_sessions,
     devices,
     exercises,
+    counter_configs,
     workouts,
     workout_exercises,
     workout_sets,

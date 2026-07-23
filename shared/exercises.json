@@ -7,7 +7,11 @@
       "body_area": "other",
       "primary_muscles": [],
       "secondary_muscles": [],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "other",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 1,
@@ -20,7 +24,11 @@
         "triceps",
         "front delts"
       ],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "push",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 2,
@@ -33,7 +41,11 @@
         "triceps",
         "front delts"
       ],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "push",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 3,
@@ -46,7 +58,11 @@
         "triceps",
         "upper traps"
       ],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "push",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 4,
@@ -59,7 +75,11 @@
         "triceps",
         "core"
       ],
-      "load_factor": 0.64
+      "load_factor": 0.64,
+      "category": "push",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 5,
@@ -72,7 +92,11 @@
       "secondary_muscles": [
         "front delts"
       ],
-      "load_factor": 0.95
+      "load_factor": 0.95,
+      "category": "push",
+      "equipment": "bodyweight",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 6,
@@ -85,7 +109,11 @@
       "profile": {
         "min_rep_ms": 800
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "push",
+      "equipment": "dumbbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 7,
@@ -100,7 +128,11 @@
       "profile": {
         "min_rep_ms": 700
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "dumbbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 8,
@@ -116,7 +148,11 @@
       "profile": {
         "min_rep_ms": 700
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "dumbbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 9,
@@ -129,7 +165,11 @@
       "profile": {
         "min_rep_ms": 700
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "push",
+      "equipment": "dumbbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 10,
@@ -142,7 +182,11 @@
       "profile": {
         "min_rep_ms": 700
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "push",
+      "equipment": "cable",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 11,
@@ -156,7 +200,11 @@
         "biceps",
         "rear delts"
       ],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 12,
@@ -170,7 +218,11 @@
         "biceps",
         "rear delts"
       ],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "dumbbell",
+      "loadable": true,
+      "unilateral": true
     },
     {
       "id": 13,
@@ -182,7 +234,11 @@
       "secondary_muscles": [
         "biceps"
       ],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "machine",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 14,
@@ -198,7 +254,11 @@
       "profile": {
         "min_rep_ms": 1100
       },
-      "load_factor": 1.0
+      "load_factor": 1.0,
+      "category": "pull",
+      "equipment": "bodyweight",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 15,
@@ -214,7 +274,11 @@
       "profile": {
         "min_rep_ms": 1100
       },
-      "load_factor": 1.0
+      "load_factor": 1.0,
+      "category": "pull",
+      "equipment": "bodyweight",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 16,
@@ -229,7 +293,11 @@
       "profile": {
         "min_rep_ms": 700
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 17,
@@ -247,7 +315,11 @@
       "profile": {
         "min_rep_ms": 1200
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "hinge",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 18,
@@ -263,7 +335,11 @@
       "profile": {
         "min_rep_ms": 1100
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "hinge",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 19,
@@ -280,7 +356,11 @@
       "profile": {
         "min_rep_ms": 1100
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "squat",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 20,
@@ -296,7 +376,11 @@
       "profile": {
         "min_rep_ms": 1100
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "squat",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 21,
@@ -312,7 +396,11 @@
       "profile": {
         "min_rep_ms": 1000
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "squat",
+      "equipment": "dumbbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 22,
@@ -328,7 +416,11 @@
       "profile": {
         "min_rep_ms": 1000
       },
-      "load_factor": 0.65
+      "load_factor": 0.65,
+      "category": "squat",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": true
     },
     {
       "id": 23,
@@ -341,7 +433,11 @@
       "secondary_muscles": [
         "hamstrings"
       ],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "squat",
+      "equipment": "machine",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 24,
@@ -351,7 +447,11 @@
         "hamstrings"
       ],
       "secondary_muscles": [],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "hinge",
+      "equipment": "machine",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 25,
@@ -361,7 +461,11 @@
         "quads"
       ],
       "secondary_muscles": [],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "squat",
+      "equipment": "machine",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 26,
@@ -374,7 +478,11 @@
       "profile": {
         "min_rep_ms": 600
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "other",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 27,
@@ -386,7 +494,11 @@
       "secondary_muscles": [
         "hamstrings"
       ],
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "hinge",
+      "equipment": "barbell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 28,
@@ -403,7 +515,11 @@
       "profile": {
         "min_rep_ms": 600
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "hinge",
+      "equipment": "kettlebell",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 29,
@@ -416,7 +532,11 @@
       "profile": {
         "min_rep_ms": 700
       },
-      "load_factor": 0.3
+      "load_factor": 0.3,
+      "category": "core",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 30,
@@ -429,7 +549,11 @@
         "shoulders"
       ],
       "default_timed": true,
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "core",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 31,
@@ -443,7 +567,11 @@
         "triceps"
       ],
       "default_timed": true,
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "core",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 32,
@@ -458,7 +586,11 @@
       "profile": {
         "min_rep_ms": 600
       },
-      "load_factor": 0.3
+      "load_factor": 0.3,
+      "category": "core",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 33,
@@ -474,7 +606,11 @@
       "profile": {
         "min_rep_ms": 800
       },
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "cable",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 34,
@@ -489,7 +625,11 @@
         "rear delts",
         "core"
       ],
-      "load_factor": 0.55
+      "load_factor": 0.55,
+      "category": "pull",
+      "equipment": "rings",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 35,
@@ -504,7 +644,11 @@
         "forearms"
       ],
       "default_timed": true,
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "push",
+      "equipment": "rings",
+      "loadable": true,
+      "unilateral": false
     },
     {
       "id": 36,
@@ -517,7 +661,11 @@
         "triceps",
         "upper pecs"
       ],
-      "load_factor": 0.66
+      "load_factor": 0.66,
+      "category": "push",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 37,
@@ -529,7 +677,11 @@
       ],
       "secondary_muscles": [],
       "default_timed": true,
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "core",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 38,
@@ -544,7 +696,11 @@
       "profile": {
         "min_rep_ms": 1200
       },
-      "load_factor": 0.2
+      "load_factor": 0.2,
+      "category": "core",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 39,
@@ -558,7 +714,11 @@
         "shoulders"
       ],
       "default_timed": true,
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 40,
@@ -572,7 +732,11 @@
         "biceps"
       ],
       "default_timed": true,
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 41,
@@ -588,7 +752,11 @@
       "profile": {
         "min_rep_ms": 1000
       },
-      "load_factor": 0.85
+      "load_factor": 0.85,
+      "category": "squat",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": true
     },
     {
       "id": 42,
@@ -603,7 +771,11 @@
         "shoulders"
       ],
       "default_timed": true,
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "pull",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 43,
@@ -618,7 +790,11 @@
         "chest"
       ],
       "default_timed": true,
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "push",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 44,
@@ -635,7 +811,11 @@
       "profile": {
         "min_rep_ms": 1000
       },
-      "load_factor": 0.75
+      "load_factor": 0.75,
+      "category": "push",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 45,
@@ -650,7 +830,11 @@
       "profile": {
         "min_rep_ms": 600
       },
-      "load_factor": 0.3
+      "load_factor": 0.3,
+      "category": "core",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": false
     },
     {
       "id": 46,
@@ -663,7 +847,11 @@
         "shoulders"
       ],
       "default_timed": true,
-      "load_factor": 0.0
+      "load_factor": 0.0,
+      "category": "core",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": true
     },
     {
       "id": 47,
@@ -679,7 +867,11 @@
       "profile": {
         "min_rep_ms": 1200
       },
-      "load_factor": 0.9
+      "load_factor": 0.9,
+      "category": "squat",
+      "equipment": "bodyweight",
+      "loadable": false,
+      "unilateral": true
     }
   ]
 }
