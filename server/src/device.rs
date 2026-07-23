@@ -147,6 +147,9 @@ pub struct RecordingUpload {
     pub sample_count: i32,
     #[serde(default)]
     pub truncated: bool,
+    /// Stable per-set id from the watch (idempotency key vs the offline queue).
+    #[serde(default)]
+    pub client_set_id: Option<i64>,
     /// Base64 of packed little-endian i16 x,y,z triplets (mG).
     pub data: String,
 }
@@ -210,7 +213,8 @@ pub async fn upload_recording(
         sessions::log_recording(
             conn,
             user_id,
-            id,
+            Some(id),
+            up.client_set_id,
             &up.workout_name,
             up.movement_id,
             &exercise_name,
@@ -223,4 +227,61 @@ pub async fn upload_recording(
     })
     .await?;
     Ok(Json(json!({ "id": id })))
+}
+
+#[derive(Deserialize)]
+pub struct SessionSetUpload {
+    pub client_set_id: i64,
+    pub movement_id: i32,
+    #[serde(default)]
+    pub workout_name: String,
+    #[serde(default)]
+    pub set_index: i32,
+    pub actual: i32,
+    #[serde(default)]
+    pub is_timed: bool,
+    #[serde(default)]
+    pub work_secs: Option<i32>,
+    /// Unix seconds when the set was performed (watch clock).
+    pub performed_at: i64,
+}
+
+/// POST /api/device/sessions — one offline-queued set summary. Idempotent on
+/// client_set_id, so re-flushes and the live accel path never duplicate a set.
+pub async fn sessions(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(up): Json<SessionSetUpload>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let _ = up.set_index; // reserved; grouping is by workout + time
+    let token = bearer_token(&headers);
+    let dev_fallback = state.cfg.dev_login;
+    db::run(&state.pool, move |conn| {
+        let user_id = device_user(conn, token, dev_fallback)?;
+        let exercise_name: String = exercises::table
+            .filter(exercises::watch_movement_id.eq(up.movement_id))
+            .select(exercises::name)
+            .first(conn)
+            .optional()?
+            .unwrap_or_default();
+        let performed_at = chrono::DateTime::from_timestamp(up.performed_at, 0)
+            .map(|dt| dt.naive_utc())
+            .unwrap_or_else(|| Utc::now().naive_utc());
+        sessions::log_recording(
+            conn,
+            user_id,
+            None,
+            Some(up.client_set_id),
+            &up.workout_name,
+            up.movement_id,
+            &exercise_name,
+            up.is_timed,
+            up.actual,
+            up.work_secs,
+            performed_at,
+        )?;
+        Ok(())
+    })
+    .await?;
+    Ok(Json(json!({ "ok": true, "client_set_id": up.client_set_id })))
 }

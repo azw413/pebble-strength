@@ -129,6 +129,7 @@ pub struct SessionSet {
     pub work_secs: Option<i32>,
     pub recording_id: Option<i32>,
     pub performed_at: NaiveDateTime,
+    pub client_set_id: Option<i64>,
 }
 
 #[derive(Queryable, Identifiable, Clone, Debug, Serialize)]

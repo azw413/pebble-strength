@@ -18,10 +18,12 @@ const SESSION_GAP_SECS: i64 = 3600;
 /// Append one recorded set to the appropriate session (creating one if the last
 /// set for this workout is older than the session gap). Returns the session id.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub fn log_recording(
     conn: &mut SqliteConnection,
     user_id: i32,
-    recording_id: i32,
+    recording_id: Option<i32>,
+    client_set_id: Option<i64>,
     workout_name: &str,
     movement_id: i32,
     exercise_name: &str,
@@ -30,6 +32,22 @@ pub fn log_recording(
     work_secs: Option<i32>,
     performed_at: NaiveDateTime,
 ) -> Result<i32, AppError> {
+    // Idempotent on the watch's stable set id: if this set is already logged
+    // (e.g. the live accel upload beat the offline-queue flush, or a re-flush),
+    // return its session unchanged instead of inserting a duplicate.
+    if let Some(cid) = client_set_id {
+        let existing: Option<i32> = session_sets::table
+            .inner_join(sessions::table)
+            .filter(sessions::user_id.eq(user_id))
+            .filter(session_sets::client_set_id.eq(cid))
+            .select(sessions::id)
+            .first(conn)
+            .optional()?;
+        if let Some(sid) = existing {
+            return Ok(sid);
+        }
+    }
+
     let last: Option<(i32, NaiveDateTime)> = session_sets::table
         .inner_join(sessions::table)
         .filter(sessions::user_id.eq(user_id))
@@ -69,8 +87,9 @@ pub fn log_recording(
             session_sets::actual.eq(actual),
             session_sets::weight_kg.eq::<Option<f32>>(None),
             session_sets::work_secs.eq(work_secs),
-            session_sets::recording_id.eq(Some(recording_id)),
+            session_sets::recording_id.eq(recording_id),
             session_sets::performed_at.eq(performed_at),
+            session_sets::client_set_id.eq(client_set_id),
         ))
         .execute(conn)?;
     Ok(session_id)
@@ -110,7 +129,7 @@ pub fn backfill(conn: &mut SqliteConnection) -> Result<usize, AppError> {
             continue;
         }
         let work = if rate > 0 { Some(count / rate) } else { None };
-        log_recording(conn, uid, id, &won, mv, &exn, timed, actual, work, at)?;
+        log_recording(conn, uid, Some(id), None, &won, mv, &exn, timed, actual, work, at)?;
         n += 1;
     }
     Ok(n)

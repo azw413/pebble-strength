@@ -166,6 +166,7 @@ diesel::table! {
         work_secs -> Nullable<Integer>,
         recording_id -> Nullable<Integer>,
         performed_at -> Timestamp,
+        client_set_id -> Nullable<BigInt>,
     }
 }
 

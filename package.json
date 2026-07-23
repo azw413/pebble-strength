@@ -38,7 +38,14 @@
       "WK_DATA",
       "WK_DONE",
       "CN_COUNT",
-      "CN_DATA"
+      "CN_DATA",
+      "CLIENT_ID",
+      "WORK_SECS",
+      "PERFORMED_AT",
+      "SQ_PULL",
+      "SQ_ACK",
+      "SYNC_BEGIN",
+      "SYNC_END"
     ],
     "resources": {
       "media": []

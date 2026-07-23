@@ -4,6 +4,7 @@
 #include "recorder.h"
 #include "rep_counter.h"
 #include "counters_store.h"
+#include "session_queue.h"
 #include "ui_session.h"
 
 // Guided session: Active set -> Rest -> ... -> Summary (SPEC.md §7).
@@ -48,6 +49,7 @@ static RepCounter s_rc;
 static bool s_accel_on;
 static bool s_label_pending;
 static uint8_t s_label_ex, s_label_set;
+static uint32_t s_label_client_id;  // stable set id, shared by accel + queue paths
 
 static PackExercise *cur_ex(void) { return &s_workout.exercises[s_cur_ex]; }
 static PackSet cur_set(void) { return cur_ex()->sets[s_cur_set]; }
@@ -103,7 +105,22 @@ static void accel_stop(void) {
 static void finalize_label(void) {
   if (s_label_pending) {
     s_label_pending = false;
-    recorder_set_label(s_actual[s_label_ex][s_label_set]);
+    uint8_t actual = s_actual[s_label_ex][s_label_set];
+    recorder_set_label(actual);
+    // Durable offline queue: enqueue every finished set (summary only). Drained
+    // by the accel-upload ack when online, flushed on reconnect when not.
+    const PackExercise *e = &s_workout.exercises[s_label_ex];
+    SqSet set;
+    set.client_set_id = s_label_client_id;
+    set.performed_at = (uint32_t)time(NULL);
+    set.movement_id = e->movement_id;
+    set.set_index = s_label_set;
+    set.timed = (e->flags & PACK_FLAG_TIMED) != 0;
+    set.actual = actual;
+    set.work_secs = s_work_secs[s_label_ex][s_label_set];
+    strncpy(set.workout_name, s_workout.name, sizeof set.workout_name - 1);
+    set.workout_name[sizeof set.workout_name - 1] = '\0';
+    session_queue_enqueue(&set);
   }
 }
 
@@ -207,7 +224,9 @@ static void finish_set(uint8_t actual) {
   s_work_secs[s_cur_ex][s_cur_set] =
       cur_timed() ? (uint16_t)actual : (uint16_t)s_work_elapsed;
   accel_stop();
-  recorder_stage(cur_ex()->movement_id, s_cur_set, cur_timed(), s_workout.name);
+  s_label_client_id = session_queue_next_id();
+  recorder_stage(cur_ex()->movement_id, s_cur_set, cur_timed(), s_workout.name,
+                 s_label_client_id);
   s_label_pending = true;
   s_label_ex = s_cur_ex;
   s_label_set = s_cur_set;

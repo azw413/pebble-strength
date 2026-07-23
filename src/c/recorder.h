@@ -20,6 +20,6 @@ bool recorder_is_capturing(void);
 void recorder_begin(void);
 void recorder_feed(int16_t x, int16_t y, int16_t z);
 void recorder_stage(uint8_t movement_id, uint8_t set_index, bool timed,
-                    const char *workout_name);
+                    const char *workout_name, uint32_t client_set_id);
 void recorder_set_label(uint8_t actual);
 void recorder_abort(void);

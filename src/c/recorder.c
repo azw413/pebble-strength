@@ -33,6 +33,7 @@ typedef struct {
   SlotState state;
   // Staged metadata.
   uint32_t rec_id;
+  uint32_t client_set_id;  // watch-unique set id; server idempotency key
   uint8_t movement, set_index;
   bool timed;
   char workout_name[25];
@@ -144,6 +145,7 @@ static void send_current(void) {
     case SLOT_SEND_META:
       dict_write_uint8(iter, MESSAGE_KEY_MSG_TYPE, MSG_REC_META);
       dict_write_uint32(iter, MESSAGE_KEY_REC_ID, s->rec_id);
+      dict_write_uint32(iter, MESSAGE_KEY_CLIENT_ID, s->client_set_id);
       dict_write_uint8(iter, MESSAGE_KEY_MOVEMENT, s->movement);
       dict_write_uint8(iter, MESSAGE_KEY_SET_INDEX, s->set_index);
       dict_write_uint8(iter, MESSAGE_KEY_TIMED, s->timed ? 1 : 0);
@@ -219,7 +221,7 @@ void recorder_feed(int16_t x, int16_t y, int16_t z) {
 }
 
 void recorder_stage(uint8_t movement_id, uint8_t set_index, bool timed,
-                    const char *workout_name) {
+                    const char *workout_name, uint32_t client_set_id) {
   if (s_cap == -1) return;
   Slot *s = &s_slots[s_cap];
   if (s->state != SLOT_CAPTURING) return;
@@ -229,6 +231,7 @@ void recorder_stage(uint8_t movement_id, uint8_t set_index, bool timed,
     return;
   }
   s->rec_id = (uint32_t)time(NULL);
+  s->client_set_id = client_set_id;
   s->movement = movement_id;
   s->set_index = set_index;
   s->timed = timed;

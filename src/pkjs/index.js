@@ -11,6 +11,47 @@ var DEFAULT_SERVER = 'https://pebblestrength.app';
 var MSG_REC_META = 0;
 var MSG_REC_CHUNK = 1;
 var MSG_REC_DONE = 2;
+var MSG_SESSION_SET = 3;  // watch -> phone: one offline-queued set summary
+
+function noop() {}
+
+// Tell the watch a set reached the server, so it drops it from the durable
+// queue. Both the accel path and the offline flush ack the same way.
+function ackSet(id) {
+  Pebble.sendAppMessage({ SQ_ACK: id }, noop, function() {
+    console.log('SQ_ACK send failed for ' + id);
+  });
+}
+
+// POST one queued set summary (no accel) to the sessions endpoint; ack on success.
+function postSession(p) {
+  var s = getSettings();
+  if (!s.token) { return; }
+  var body = JSON.stringify({
+    client_set_id: p.CLIENT_ID,
+    movement_id: p.MOVEMENT,
+    set_index: p.SET_INDEX,
+    actual: p.ACTUAL,
+    is_timed: !!p.TIMED,
+    work_secs: p.WORK_SECS,
+    workout_name: p.WORKOUT_NAME || '',
+    performed_at: p.PERFORMED_AT
+  });
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', s.server + '/api/device/sessions');
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('Authorization', 'Bearer ' + s.token);
+  xhr.onload = function() {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      console.log('queued set ' + p.CLIENT_ID + ' synced');
+      ackSet(p.CLIENT_ID);
+    } else {
+      console.log('session flush HTTP ' + xhr.status);
+    }
+  };
+  xhr.onerror = function() { console.log('session flush failed (server unreachable)'); };
+  xhr.send(body);
+}
 
 var pending = {};
 
@@ -113,26 +154,27 @@ function packCounters(cs) {
   return b;
 }
 
-function syncCounters() {
+function syncCounters(done) {
+  done = done || noop;
   var s = getSettings();
-  if (!s.token) { return; }
+  if (!s.token) { done(); return; }
   var xhr = new XMLHttpRequest();
   xhr.open('GET', s.server + '/api/device/counters');
   xhr.setRequestHeader('Authorization', 'Bearer ' + s.token);
   xhr.onload = function() {
-    if (xhr.status !== 200) { console.log('counter sync HTTP ' + xhr.status); return; }
+    if (xhr.status !== 200) { console.log('counter sync HTTP ' + xhr.status); done(); return; }
     try {
       var cs = (JSON.parse(xhr.responseText).counters) || [];
-      if (!cs.length) { console.log('no counter configs to sync'); return; }
+      if (!cs.length) { console.log('no counter configs to sync'); done(); return; }
       console.log('syncing ' + cs.length + ' counter configs to watch');
       Pebble.sendAppMessage(
         { CN_COUNT: cs.length, CN_DATA: packCounters(cs) },
-        function() { console.log('counter sync sent ' + cs.length); },
-        function() { console.log('counter sync send failed'); }
+        function() { console.log('counter sync sent ' + cs.length); done(); },
+        function() { console.log('counter sync send failed'); done(); }
       );
-    } catch (err) { console.log('counter sync parse error: ' + err); }
+    } catch (err) { console.log('counter sync parse error: ' + err); done(); }
   };
-  xhr.onerror = function() { console.log('counter sync failed (server unreachable)'); };
+  xhr.onerror = function() { console.log('counter sync failed (server unreachable)'); done(); };
   xhr.send();
 }
 
@@ -151,6 +193,7 @@ function upload(meta, actual, bytes) {
     sample_rate: meta.RATE,
     sample_count: meta.SAMPLE_COUNT,
     truncated: !!meta.TRUNCATED,
+    client_set_id: meta.CLIENT_ID,
     data: b64encode(bytes)
   });
   var xhr = new XMLHttpRequest();
@@ -162,6 +205,8 @@ function upload(meta, actual, bytes) {
       console.log('recording upload unauthorised (401) — check the device token in settings');
     } else {
       console.log('recording upload: ' + xhr.status + ' ' + xhr.responseText);
+      // Server has the set — drop it from the watch's durable queue.
+      if (xhr.status >= 200 && xhr.status < 300 && meta.CLIENT_ID) ackSet(meta.CLIENT_ID);
     }
   };
   xhr.onerror = function() {
@@ -174,7 +219,16 @@ Pebble.addEventListener('ready', function() {
   var s = getSettings();
   console.log('Strength pkjs ready, server: ' + s.server +
               ', token: ' + (s.token ? 'set' : 'NOT SET — open app settings'));
-  syncWorkouts(syncCounters);
+  // Sync sequence, bracketed for the on-watch indicator: download workouts, then
+  // counter configs, then pull the offline session queue up to the server.
+  Pebble.sendAppMessage({ SYNC_BEGIN: 1 }, noop, noop);
+  syncWorkouts(function() {
+    syncCounters(function() {
+      Pebble.sendAppMessage({ SQ_PULL: 1 },
+        function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); },
+        function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); });
+    });
+  });
 });
 
 // Settings gear -> open the config page, prefilled with current values.
@@ -201,6 +255,7 @@ Pebble.addEventListener('webviewclosed', function(e) {
 
 Pebble.addEventListener('appmessage', function(e) {
   var p = e.payload;
+  if (p.MSG_TYPE === MSG_SESSION_SET) { postSession(p); return; }
   var id = p.REC_ID;
   if (p.MSG_TYPE === MSG_REC_META) {
     pending[id] = { meta: p, chunks: [] };
