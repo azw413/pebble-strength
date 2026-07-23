@@ -125,9 +125,11 @@ pub fn seed_exercises(conn: &mut SqliteConnection) -> Result<(), String> {
             .execute(conn)
             .map_err(|err| format!("seeding {}: {err}", e.name))?;
 
-        // Baseline (v1) parametric counter config from the JSON profile. Seed once;
-        // never clobber — once tuned in the DB (or superseded by a newer version),
-        // seeding leaves it alone.
+        // Baseline (v1) parametric counter config. shared/exercises.json is the
+        // source of truth, so refresh it on every boot — this is how a retuned
+        // profile (e.g. push-up's fitted params + confidence) reaches the DB and,
+        // via /api/device/counters, the watch. `active` and `version` are left
+        // untouched so a newer active version isn't disturbed.
         diesel::insert_into(counter_configs::table)
             .values((
                 counter_configs::watch_movement_id.eq(e.id),
@@ -146,7 +148,19 @@ pub fn seed_exercises(conn: &mut SqliteConnection) -> Result<(), String> {
                 counter_configs::enabled.eq(!e.default_timed),
             ))
             .on_conflict((counter_configs::watch_movement_id, counter_configs::version))
-            .do_nothing()
+            .do_update()
+            .set((
+                counter_configs::kind.eq(0),
+                counter_configs::axis_mode.eq(axis_mode(&e.profile.axis)),
+                counter_configs::lp_ms.eq(e.profile.lp_ms),
+                counter_configs::hp_ms.eq(e.profile.hp_ms),
+                counter_configs::thr_pct.eq(e.profile.thr_pct),
+                counter_configs::min_rep_ms.eq(e.profile.min_rep_ms),
+                counter_configs::min_amp.eq(e.profile.min_amp),
+                counter_configs::warmup_ms.eq(e.profile.warmup_ms),
+                counter_configs::confidence.eq(e.profile.confidence),
+                counter_configs::enabled.eq(!e.default_timed),
+            ))
             .execute(conn)
             .map_err(|err| format!("seeding counter for {}: {err}", e.name))?;
     }
