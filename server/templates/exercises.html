@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Exercises — Strength{% endblock %}
+
+{% block nav %}
+<nav>
+  <a href="/workouts">Workouts</a>
+  <a href="/sessions">Sessions</a>
+  <a href="/exercises">Exercises</a>
+  <a href="/devices">Devices</a>
+  <form method="post" action="/auth/logout"><button class="small">Log out</button></form>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1>Exercises</h1>
+<p class="muted">The movement catalog. Filter by pattern or search by name.</p>
+
+<div class="ex-controls">
+  <input id="ex-search" type="search" placeholder="Search exercises…" autocomplete="off" spellcheck="false">
+  <div class="chips" id="ex-chips">
+    <button class="chip active" data-cat="all">All <span>{{ total }}</span></button>
+    {% for c in cats %}
+    <button class="chip" data-cat="{{ c.key }}">{{ c.label }} <span>{{ c.count }}</span></button>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="ex-grid" id="ex-grid">
+  {% for e in rows %}
+  <div class="card ex-card" data-cat="{{ e.category }}" data-name="{{ e.name }}">
+    <div class="ex-head">
+      <strong>{{ e.name }}</strong>
+      <span class="badge cat-{{ e.category }}">{{ e.category_label }}</span>
+    </div>
+    <div class="ex-meta muted">
+      {{ e.body_area }} · {{ e.equipment }}{% if e.unilateral %} · per-side{% endif %}{% if e.loadable %} · weightable{% endif %}
+    </div>
+    {% if !e.muscles.is_empty() %}<div class="ex-muscles muted">{{ e.muscles }}</div>{% endif %}
+    <div class="ex-tags">
+      <span class="tag">{{ e.counter_label }}</span>
+      {% if !e.bw_load.is_empty() %}<span class="tag">BW load ×{{ e.bw_load }}</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<p class="muted" id="ex-empty" style="display:none;margin-top:1rem">No exercises match.</p>
+
+<style>
+  .ex-controls { margin: 1rem 0 1.2rem; }
+  #ex-search {
+    width: 100%; box-sizing: border-box; padding: 0.6rem 0.8rem; font-size: 1rem;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+    color: var(--ink); margin-bottom: 0.8rem;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip {
+    font: inherit; font-size: 0.85rem; cursor: pointer; padding: 0.35rem 0.7rem;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--panel);
+    color: var(--muted); transition: all .12s;
+  }
+  .chip span { opacity: 0.6; font-size: 0.78rem; }
+  .chip:hover { color: var(--ink); }
+  .chip.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .chip.active span { opacity: 0.7; }
+
+  .ex-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.9rem;
+  }
+  .ex-card { margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .ex-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .ex-head strong { font-size: 1.02rem; }
+  .ex-meta { font-size: 0.85rem; text-transform: capitalize; }
+  .ex-muscles { font-size: 0.82rem; }
+  .ex-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: auto; padding-top: 0.3rem; }
+  .tag {
+    font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 6px;
+    background: #eef0e7; color: var(--muted);
+  }
+
+  /* Pattern badge colours (flat, white text on saturated fills). */
+  .badge.cat-push, .badge.cat-pull, .badge.cat-hinge,
+  .badge.cat-squat, .badge.cat-core, .badge.cat-other { color: #fff; }
+  .badge.cat-push   { background: #e8590c; }
+  .badge.cat-pull   { background: #1971c2; }
+  .badge.cat-hinge  { background: #6741d9; }
+  .badge.cat-squat  { background: #2f9e44; }
+  .badge.cat-core   { background: #c2255c; }
+  .badge.cat-other  { background: #868e96; }
+</style>
+
+<script>
+(function () {
+  var search = document.getElementById('ex-search');
+  var chips = Array.prototype.slice.call(document.querySelectorAll('#ex-chips .chip'));
+  var cards = Array.prototype.slice.call(document.querySelectorAll('#ex-grid .ex-card'));
+  var empty = document.getElementById('ex-empty');
+  var cat = 'all';
+
+  function apply() {
+    var q = search.value.trim().toLowerCase();
+    var shown = 0;
+    cards.forEach(function (c) {
+      var okCat = cat === 'all' || c.getAttribute('data-cat') === cat;
+      var okName = !q || c.getAttribute('data-name').toLowerCase().indexOf(q) !== -1;
+      var vis = okCat && okName;
+      c.style.display = vis ? '' : 'none';
+      if (vis) shown++;
+    });
+    empty.style.display = shown ? 'none' : '';
+  }
+
+  chips.forEach(function (ch) {
+    ch.addEventListener('click', function () {
+      chips.forEach(function (x) { x.classList.remove('active'); });
+      ch.classList.add('active');
+      cat = ch.getAttribute('data-cat');
+      apply();
+    });
+  });
+  search.addEventListener('input', apply);
+})();
+</script>
+{% endblock %}

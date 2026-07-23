@@ -906,3 +906,137 @@ pub async fn promo_gif() -> axum::response::Response {
     )
         .into_response()
 }
+
+// ---- Exercise catalog ----
+
+// Movement patterns in the order the filter chips appear.
+const CAT_ORDER: [(&str, &str); 6] = [
+    ("push", "Push"),
+    ("pull", "Pull"),
+    ("hinge", "Hinge"),
+    ("squat", "Squat"),
+    ("core", "Core"),
+    ("other", "Other"),
+];
+
+fn cat_label(key: &str) -> String {
+    CAT_ORDER
+        .iter()
+        .find(|(k, _)| *k == key)
+        .map(|(_, l)| l.to_string())
+        .unwrap_or_else(|| key.to_string())
+}
+
+pub struct ExerciseRow {
+    pub name: String,
+    pub category: String,       // lowercase key, for data-cat + css class
+    pub category_label: String, // "Push"
+    pub body_area: String,
+    pub equipment: String,
+    pub muscles: String,
+    pub unilateral: bool,
+    pub loadable: bool,
+    pub counter_label: String, // "Timed hold" / "Auto-count …" / "Manual"
+    pub bw_load: String,       // "" when no bodyweight load factor
+}
+
+pub struct CatChip {
+    pub key: String,
+    pub label: String,
+    pub count: usize,
+}
+
+#[derive(Template)]
+#[template(path = "exercises.html")]
+struct ExercisesTemplate {
+    rows: Vec<ExerciseRow>,
+    cats: Vec<CatChip>,
+    total: usize,
+}
+
+pub async fn exercises_page(
+    State(state): State<AppState>,
+    CurrentUser(_user): CurrentUser,
+) -> Result<Html<String>, AppError> {
+    use crate::schema::counter_configs;
+    use std::collections::HashMap;
+
+    let (exs, cfgs) = db::run(&state.pool, |conn| {
+        let exs = exercises::table
+            .order((exercises::category.asc(), exercises::name.asc()))
+            .load::<Exercise>(conn)?;
+        // The active counter config per movement -> (enabled, confidence).
+        let cfgs: Vec<(i32, bool, f32)> = counter_configs::table
+            .filter(counter_configs::active.eq(true))
+            .select((
+                counter_configs::watch_movement_id,
+                counter_configs::enabled,
+                counter_configs::confidence,
+            ))
+            .load(conn)?;
+        Ok((exs, cfgs))
+    })
+    .await?;
+
+    let cfg: HashMap<i32, (bool, f32)> =
+        cfgs.into_iter().map(|(m, e, c)| (m, (e, c))).collect();
+
+    let total = exs.len();
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    let mut rows: Vec<ExerciseRow> = exs
+        .into_iter()
+        .map(|e| {
+            *counts.entry(e.category.clone()).or_default() += 1;
+            let muscles = match (e.primary_muscles.is_empty(), e.secondary_muscles.is_empty()) {
+                (true, true) => String::new(),
+                (false, true) => e.primary_muscles.clone(),
+                (true, false) => e.secondary_muscles.clone(),
+                (false, false) => format!("{}, {}", e.primary_muscles, e.secondary_muscles),
+            };
+            let (enabled, conf) = cfg.get(&e.watch_movement_id).copied().unwrap_or((false, 0.0));
+            let counter_label = if e.default_timed {
+                "Timed hold".to_string()
+            } else if enabled && conf > 0.0 {
+                format!("Auto-count · {}%", (conf * 100.0).round() as i32)
+            } else if enabled {
+                "Auto-count".to_string()
+            } else {
+                "Manual".to_string()
+            };
+            let bw_load = if e.load_factor > 0.0 {
+                format!("{:.2}", e.load_factor)
+            } else {
+                String::new()
+            };
+            ExerciseRow {
+                category_label: cat_label(&e.category),
+                name: e.name,
+                category: e.category,
+                body_area: e.body_area,
+                equipment: e.equipment,
+                muscles,
+                unilateral: e.unilateral,
+                loadable: e.loadable,
+                counter_label,
+                bw_load,
+            }
+        })
+        .collect();
+
+    // Present in chip order (push, pull, …), then alphabetically within a pattern.
+    let rank = |c: &str| CAT_ORDER.iter().position(|(k, _)| *k == c).unwrap_or(usize::MAX);
+    rows.sort_by(|a, b| rank(&a.category).cmp(&rank(&b.category)).then_with(|| a.name.cmp(&b.name)));
+
+    let cats: Vec<CatChip> = CAT_ORDER
+        .iter()
+        .filter_map(|(k, l)| {
+            counts.get(*k).map(|&count| CatChip {
+                key: k.to_string(),
+                label: l.to_string(),
+                count,
+            })
+        })
+        .collect();
+
+    Ok(Html(ExercisesTemplate { rows, cats, total }.render()?))
+}
