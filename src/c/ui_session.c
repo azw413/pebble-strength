@@ -3,7 +3,7 @@
 #include "packfmt.h"
 #include "recorder.h"
 #include "rep_counter.h"
-#include "counters.h"
+#include "counters_store.h"
 #include "ui_session.h"
 
 // Guided session: Active set -> Rest -> ... -> Summary (SPEC.md §7).
@@ -157,8 +157,10 @@ static void enter_active(bool with_leadin) {
     s_work_elapsed = 0;
     s_count_locked = false;
     // Data-driven counter: the movement's tuned CounterConfig (axis + band-pass
-    // + thresholds), compiled in from shared/exercises.json via counters.h.
-    rep_counter_init(&s_rc, counter_config_for(cur_ex()->movement_id), 25);
+    // + thresholds) — a downloaded override if synced, else the compiled default.
+    CounterConfig cfg;
+    counter_config_get(cur_ex()->movement_id, &cfg);
+    rep_counter_init(&s_rc, &cfg, 25);
   }
   if (with_leadin) {
     s_hold_state = HOLD_LEADIN;

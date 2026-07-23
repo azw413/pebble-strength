@@ -57,8 +57,9 @@ static const CounterConfig COUNTER_CONFIGS[] = {
 
 #define COUNTER_CONFIG_COUNT (sizeof COUNTER_CONFIGS / sizeof COUNTER_CONFIGS[0])
 
-// Movement's config, or Custom (0) as a safe fallback for unknown ids.
-static inline const CounterConfig *counter_config_for(uint8_t movement_id) {
+// Compiled-in default config for a movement (Custom (0) for unknown ids).
+// counters_store wraps this, preferring a downloaded override when present.
+static inline const CounterConfig *counter_config_default(uint8_t movement_id) {
   return movement_id < COUNTER_CONFIG_COUNT ? &COUNTER_CONFIGS[movement_id]
                                             : &COUNTER_CONFIGS[0];
 }

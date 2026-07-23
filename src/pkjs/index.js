@@ -57,41 +57,82 @@ function b64decode(str) {
 
 // Workout download (server -> watch). Each packed workout fits one AppMessage,
 // so send them one at a time (chained on ack), then a WK_DONE.
-function sendWorkouts(slots) {
+function sendWorkouts(slots, done) {
+  done = done || function () {};
   var i = 0;
   function next() {
     if (i >= slots.length) {
       Pebble.sendAppMessage({ WK_DONE: 1 },
-        function() { console.log('workout sync sent ' + slots.length); },
-        function() { console.log('WK_DONE send failed'); });
+        function() { console.log('workout sync sent ' + slots.length); done(); },
+        function() { console.log('WK_DONE send failed'); done(); });
       return;
     }
     var bytes = b64decode(slots[i].data);
     Pebble.sendAppMessage(
       { WK_TOTAL: slots.length, WK_INDEX: i, WK_DATA: bytes },
       function() { i++; next(); },
-      function() { console.log('workout ' + i + ' send failed, stopping'); }
+      function() { console.log('workout ' + i + ' send failed, stopping'); done(); }
     );
   }
   next();
 }
 
-function syncWorkouts() {
+// The AppMessage outbox is serial, so counter sync is chained to run only after
+// workouts finish (`done`) rather than racing them.
+function syncWorkouts(done) {
+  done = done || function () {};
   var s = getSettings();
-  if (!s.token) { console.log('no device token — skipping workout sync'); return; }
+  if (!s.token) { console.log('no device token — skipping sync'); done(); return; }
   var xhr = new XMLHttpRequest();
   xhr.open('GET', s.server + '/api/device/workouts');
   xhr.setRequestHeader('Authorization', 'Bearer ' + s.token);
   xhr.onload = function() {
-    if (xhr.status !== 200) { console.log('workout sync HTTP ' + xhr.status); return; }
+    if (xhr.status !== 200) { console.log('workout sync HTTP ' + xhr.status); done(); return; }
     try {
       var slots = (JSON.parse(xhr.responseText).slots) || [];
-      if (!slots.length) { console.log('no assigned workouts to sync'); return; }
+      if (!slots.length) { console.log('no assigned workouts to sync'); done(); return; }
       console.log('syncing ' + slots.length + ' workouts to watch');
-      sendWorkouts(slots);
-    } catch (err) { console.log('workout sync parse error: ' + err); }
+      sendWorkouts(slots, done);
+    } catch (err) { console.log('workout sync parse error: ' + err); done(); }
   };
-  xhr.onerror = function() { console.log('workout sync failed (server unreachable)'); };
+  xhr.onerror = function() { console.log('workout sync failed (server unreachable)'); done(); };
+  xhr.send();
+}
+
+function push16(b, v) { b.push(v & 255, (v >> 8) & 255); }
+
+// One packed 14-byte record per counter config; must match counters_store.c.
+function packCounters(cs) {
+  var b = [];
+  for (var i = 0; i < cs.length; i++) {
+    var c = cs[i];
+    b.push(c.movement_id & 255, (c.kind || 0) & 255, c.axis_mode & 255, c.thr_pct & 255);
+    push16(b, c.lp_ms); push16(b, c.hp_ms); push16(b, c.min_rep_ms);
+    push16(b, c.min_amp); push16(b, c.warmup_ms);
+  }
+  return b;
+}
+
+function syncCounters() {
+  var s = getSettings();
+  if (!s.token) { return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', s.server + '/api/device/counters');
+  xhr.setRequestHeader('Authorization', 'Bearer ' + s.token);
+  xhr.onload = function() {
+    if (xhr.status !== 200) { console.log('counter sync HTTP ' + xhr.status); return; }
+    try {
+      var cs = (JSON.parse(xhr.responseText).counters) || [];
+      if (!cs.length) { console.log('no counter configs to sync'); return; }
+      console.log('syncing ' + cs.length + ' counter configs to watch');
+      Pebble.sendAppMessage(
+        { CN_COUNT: cs.length, CN_DATA: packCounters(cs) },
+        function() { console.log('counter sync sent ' + cs.length); },
+        function() { console.log('counter sync send failed'); }
+      );
+    } catch (err) { console.log('counter sync parse error: ' + err); }
+  };
+  xhr.onerror = function() { console.log('counter sync failed (server unreachable)'); };
   xhr.send();
 }
 
@@ -133,7 +174,7 @@ Pebble.addEventListener('ready', function() {
   var s = getSettings();
   console.log('Strength pkjs ready, server: ' + s.server +
               ', token: ' + (s.token ? 'set' : 'NOT SET — open app settings'));
-  syncWorkouts();
+  syncWorkouts(syncCounters);
 });
 
 // Settings gear -> open the config page, prefilled with current values.

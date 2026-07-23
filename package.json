@@ -36,7 +36,9 @@
       "WK_TOTAL",
       "WK_INDEX",
       "WK_DATA",
-      "WK_DONE"
+      "WK_DONE",
+      "CN_COUNT",
+      "CN_DATA"
     ],
     "resources": {
       "media": []

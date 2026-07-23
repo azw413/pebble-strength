@@ -86,6 +86,52 @@ pub async fn workouts(
     })))
 }
 
+/// GET /api/device/counters — the published (active + enabled + confidence>0)
+/// per-movement counter configs. The watch stores these as overrides on top of
+/// its compiled-in defaults, so tuning improves without an app-store release.
+pub async fn counters(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, AppError> {
+    use crate::schema::counter_configs as cc;
+    let token = bearer_token(&headers);
+    let dev_fallback = state.cfg.dev_login;
+    let rows = db::run(&state.pool, move |conn| {
+        device_user(conn, token, dev_fallback)?; // require a valid device
+        let rows: Vec<(i32, i32, i32, i32, i32, i32, i32, i32, i32)> = cc::table
+            .filter(cc::active.eq(true))
+            .filter(cc::enabled.eq(true))
+            .filter(cc::confidence.gt(0.0f32))
+            .select((
+                cc::watch_movement_id,
+                cc::kind,
+                cc::axis_mode,
+                cc::lp_ms,
+                cc::hp_ms,
+                cc::thr_pct,
+                cc::min_rep_ms,
+                cc::min_amp,
+                cc::warmup_ms,
+            ))
+            .order(cc::watch_movement_id.asc())
+            .load(conn)?;
+        Ok(rows)
+    })
+    .await?;
+
+    let counters: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|(mid, kind, axis, lp, hp, thr, minrep, minamp, warm)| {
+            json!({
+                "movement_id": mid, "kind": kind, "axis_mode": axis,
+                "lp_ms": lp, "hp_ms": hp, "thr_pct": thr,
+                "min_rep_ms": minrep, "min_amp": minamp, "warmup_ms": warm,
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "format_version": 1, "counters": counters })))
+}
+
 #[derive(Deserialize)]
 pub struct RecordingUpload {
     pub movement_id: i32,
