@@ -62,7 +62,17 @@
       "category": "push",
       "equipment": "barbell",
       "loadable": true,
-      "unilateral": false
+      "unilateral": false,
+      "profile": {
+        "axis": "x",
+        "lp_ms": 500,
+        "hp_ms": 3000,
+        "thr_pct": 30,
+        "min_rep_ms": 900,
+        "min_amp": 60,
+        "warmup_ms": 700,
+        "confidence": 0.5
+      }
     },
     {
       "id": 4,
