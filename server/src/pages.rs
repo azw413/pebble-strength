@@ -927,17 +927,22 @@ fn cat_label(key: &str) -> String {
         .unwrap_or_else(|| key.to_string())
 }
 
+#[derive(serde::Serialize)]
 pub struct ExerciseRow {
+    pub id: i32,                // watch_movement_id, keys the muscle map + detail
     pub name: String,
     pub category: String,       // lowercase key, for data-cat + css class
     pub category_label: String, // "Push"
     pub body_area: String,
     pub equipment: String,
-    pub muscles: String,
+    pub primary: Vec<String>,   // muscle tokens -> coloured on the map
+    pub secondary: Vec<String>,
+    pub muscles: String,        // joined, for the list line
     pub unilateral: bool,
     pub loadable: bool,
-    pub counter_label: String, // "Timed hold" / "Auto-count …" / "Manual"
-    pub bw_load: String,       // "" when no bodyweight load factor
+    pub bw_load: String,        // "" when no bodyweight load factor
+    pub rep: String,            // "ready" | "soon" | "hold"
+    pub rep_label: String,      // "Rep detection · 90%" / "soon" / "Timed hold"
 }
 
 pub struct CatChip {
@@ -952,6 +957,7 @@ struct ExercisesTemplate {
     rows: Vec<ExerciseRow>,
     cats: Vec<CatChip>,
     total: usize,
+    exercises_json: String,
 }
 
 pub async fn exercises_page(
@@ -987,21 +993,23 @@ pub async fn exercises_page(
         .into_iter()
         .map(|e| {
             *counts.entry(e.category.clone()).or_default() += 1;
-            let muscles = match (e.primary_muscles.is_empty(), e.secondary_muscles.is_empty()) {
-                (true, true) => String::new(),
-                (false, true) => e.primary_muscles.clone(),
-                (true, false) => e.secondary_muscles.clone(),
-                (false, false) => format!("{}, {}", e.primary_muscles, e.secondary_muscles),
+            let split = |s: &str| {
+                s.split(", ").filter(|x| !x.is_empty()).map(str::to_string).collect::<Vec<_>>()
+            };
+            let primary = split(&e.primary_muscles);
+            let secondary = split(&e.secondary_muscles);
+            let muscles = {
+                let mut all = primary.clone();
+                all.extend(secondary.clone());
+                all.join(", ")
             };
             let (enabled, conf) = cfg.get(&e.watch_movement_id).copied().unwrap_or((false, 0.0));
-            let counter_label = if e.default_timed {
-                "Timed hold".to_string()
+            let (rep, rep_label) = if e.default_timed {
+                ("hold".to_string(), "Timed hold".to_string())
             } else if enabled && conf > 0.0 {
-                format!("Auto-count · {}%", (conf * 100.0).round() as i32)
-            } else if enabled {
-                "Auto-count".to_string()
+                ("ready".to_string(), format!("Rep detection · {}%", (conf * 100.0).round() as i32))
             } else {
-                "Manual".to_string()
+                ("soon".to_string(), "Rep detection coming soon".to_string())
             };
             let bw_load = if e.load_factor > 0.0 {
                 format!("{:.2}", e.load_factor)
@@ -1009,16 +1017,20 @@ pub async fn exercises_page(
                 String::new()
             };
             ExerciseRow {
+                id: e.watch_movement_id,
                 category_label: cat_label(&e.category),
                 name: e.name,
                 category: e.category,
                 body_area: e.body_area,
                 equipment: e.equipment,
+                primary,
+                secondary,
                 muscles,
                 unilateral: e.unilateral,
                 loadable: e.loadable,
-                counter_label,
                 bw_load,
+                rep,
+                rep_label,
             }
         })
         .collect();
@@ -1038,5 +1050,6 @@ pub async fn exercises_page(
         })
         .collect();
 
-    Ok(Html(ExercisesTemplate { rows, cats, total }.render()?))
+    let exercises_json = script_json(&rows)?;
+    Ok(Html(ExercisesTemplate { rows, cats, total, exercises_json }.render()?))
 }

@@ -14,111 +14,302 @@
 
 {% block content %}
 <h1>Exercises</h1>
-<p class="muted">The movement catalog. Filter by pattern or search by name.</p>
+<p class="muted" style="margin-top:-0.3rem">Pick a movement to see the muscles it works. The green mark shows where
+on-watch rep detection is ready.</p>
 
-<div class="ex-controls">
-  <input id="ex-search" type="search" placeholder="Search exercises…" autocomplete="off" spellcheck="false">
-  <div class="chips" id="ex-chips">
-    <button class="chip active" data-cat="all">All <span>{{ total }}</span></button>
-    {% for c in cats %}
-    <button class="chip" data-cat="{{ c.key }}">{{ c.label }} <span>{{ c.count }}</span></button>
-    {% endfor %}
-  </div>
-</div>
+<div class="ex-wrap">
+  <!-- Sticky map + detail -->
+  <aside class="ex-aside">
+    <div class="card readout">
+      <div class="readout-title">MUSCLE MAP</div>
+      <div class="bodies">
+        <div class="body">
+          <svg viewBox="0 0 200 380" role="img" aria-label="Front muscle map">
+            <defs>
+              <path id="arm" d="M60,76 C47,82 42,110 44,140 C45,168 43,194 48,214 L39,214 C34,194 33,164 33,132 C33,104 39,80 53,72 Z"/>
+              <path id="leg" d="M74,213 C66,246 70,290 77,318 C75,342 76,360 79,379 L95,379 C97,360 97,342 95,318 C98,290 99,246 98,214 Z"/>
+              <path id="f_delt" d="M60,74 C50,75 45,86 48,98 C57,95 66,90 67,80 C65,75 63,74 60,74 Z"/>
+              <path id="f_pec" d="M97,88 C84,86 68,90 64,100 C62,110 70,118 84,117 C93,116 98,107 98,97 Z"/>
+              <path id="f_obl" d="M88,124 C81,126 78,142 82,160 C84,168 88,168 88,164 Z"/>
+              <path id="f_bi" d="M45,108 C39,111 38,128 42,140 C46,142 50,139 50,130 C50,120 49,109 45,108 Z"/>
+              <path id="f_fore" d="M43,146 C38,150 37,174 41,198 C44,201 47,199 48,192 C48,172 47,150 44,147 Z"/>
+              <path id="f_quad" d="M78,218 C70,228 73,270 80,302 C85,306 90,303 92,290 C94,260 93,226 90,218 C86,214 82,214 78,218 Z"/>
+            </defs>
+            <g class="sil">
+              <ellipse cx="100" cy="30" rx="19" ry="22"/>
+              <path d="M89,49 L111,49 L109,66 L91,66 Z"/>
+              <path d="M60,74 C57,104 66,150 75,180 C72,192 71,204 72,212 L128,212 C129,204 128,192 125,180 C134,150 143,104 140,74 C121,66 79,66 60,74 Z"/>
+              <use href="#arm"/><use href="#arm" transform="translate(200,0) scale(-1,1)"/>
+              <use href="#leg"/><use href="#leg" transform="translate(200,0) scale(-1,1)"/>
+            </g>
+            <g>
+              <use class="muscle" data-muscle="shoulders" href="#f_delt"/>
+              <use class="muscle" data-muscle="shoulders" href="#f_delt" transform="translate(200,0) scale(-1,1)"/>
+              <use class="muscle" data-muscle="chest" href="#f_pec"/>
+              <use class="muscle" data-muscle="chest" href="#f_pec" transform="translate(200,0) scale(-1,1)"/>
+              <path class="muscle" data-muscle="abs" d="M89,120 C89,118 111,118 111,120 L109,178 C109,182 91,182 91,178 Z"/>
+              <use class="muscle" data-muscle="obliques" href="#f_obl"/>
+              <use class="muscle" data-muscle="obliques" href="#f_obl" transform="translate(200,0) scale(-1,1)"/>
+              <use class="muscle" data-muscle="biceps" href="#f_bi"/>
+              <use class="muscle" data-muscle="biceps" href="#f_bi" transform="translate(200,0) scale(-1,1)"/>
+              <use class="muscle" data-muscle="forearms" href="#f_fore"/>
+              <use class="muscle" data-muscle="forearms" href="#f_fore" transform="translate(200,0) scale(-1,1)"/>
+              <use class="muscle" data-muscle="quads" href="#f_quad"/>
+              <use class="muscle" data-muscle="quads" href="#f_quad" transform="translate(200,0) scale(-1,1)"/>
+            </g>
+            <g class="mdetail">
+              <line x1="100" y1="122" x2="100" y2="178"/>
+              <line x1="91" y1="136" x2="109" y2="136"/>
+              <line x1="91" y1="150" x2="109" y2="150"/>
+              <line x1="92" y1="164" x2="108" y2="164"/>
+            </g>
+          </svg>
+          <div class="cap">FRONT</div>
+        </div>
+        <div class="body">
+          <svg viewBox="0 0 200 380" role="img" aria-label="Back muscle map">
+            <defs>
+              <path id="b_delt" d="M60,74 C50,75 45,86 48,98 C57,95 66,90 67,80 C65,75 63,74 60,74 Z"/>
+              <path id="b_lat" d="M88,112 C72,118 68,152 84,178 C91,166 93,140 93,116 C91,112 90,112 88,112 Z"/>
+              <path id="b_tri" d="M45,108 C39,111 38,128 42,140 C46,142 50,139 50,130 C50,120 49,109 45,108 Z"/>
+              <path id="b_glute" d="M100,186 C85,186 75,197 77,212 C79,223 94,225 101,217 C103,205 103,190 100,186 Z"/>
+              <path id="b_ham" d="M78,220 C71,230 73,272 80,304 C85,308 90,305 91,292 C93,262 92,228 89,220 C86,216 82,216 78,220 Z"/>
+              <path id="b_calf" d="M80,314 C73,320 76,348 82,366 C86,369 90,367 92,356 C94,338 92,318 88,314 Z"/>
+            </defs>
+            <g class="sil">
+              <ellipse cx="100" cy="30" rx="19" ry="22"/>
+              <path d="M89,49 L111,49 L109,66 L91,66 Z"/>
+              <path d="M60,74 C57,104 66,150 75,180 C72,192 71,204 72,212 L128,212 C129,204 128,192 125,180 C134,150 143,104 140,74 C121,66 79,66 60,74 Z"/>
+              <use href="#arm"/><use href="#arm" transform="translate(200,0) scale(-1,1)"/>
+              <use href="#leg"/><use href="#leg" transform="translate(200,0) scale(-1,1)"/>
+            </g>
+            <g>
+              <path class="muscle" data-muscle="traps" d="M100,64 L80,78 L85,110 L115,110 L120,78 Z"/>
+              <use class="muscle" data-muscle="reardelts" href="#b_delt"/>
+              <use class="muscle" data-muscle="reardelts" href="#b_delt" transform="translate(200,0) scale(-1,1)"/>
+              <path class="muscle" data-muscle="upperback" d="M90,96 C90,94 110,94 110,96 L108,116 C108,118 92,118 92,116 Z"/>
+              <use class="muscle" data-muscle="lats" href="#b_lat"/>
+              <use class="muscle" data-muscle="lats" href="#b_lat" transform="translate(200,0) scale(-1,1)"/>
+              <use class="muscle" data-muscle="triceps" href="#b_tri"/>
+              <use class="muscle" data-muscle="triceps" href="#b_tri" transform="translate(200,0) scale(-1,1)"/>
+              <path class="muscle" data-muscle="lowerback" d="M92,120 C92,118 108,118 108,120 L106,150 C106,152 94,152 94,150 Z"/>
+              <use class="muscle" data-muscle="glutes" href="#b_glute"/>
+              <use class="muscle" data-muscle="glutes" href="#b_glute" transform="translate(200,0) scale(-1,1)"/>
+              <use class="muscle" data-muscle="hamstrings" href="#b_ham"/>
+              <use class="muscle" data-muscle="hamstrings" href="#b_ham" transform="translate(200,0) scale(-1,1)"/>
+              <use class="muscle" data-muscle="calves" href="#b_calf"/>
+              <use class="muscle" data-muscle="calves" href="#b_calf" transform="translate(200,0) scale(-1,1)"/>
+            </g>
+          </svg>
+          <div class="cap">BACK</div>
+        </div>
+      </div>
+      <div class="mlegend">
+        <span><span class="sw" style="background:var(--m-primary)"></span>Primary</span>
+        <span><span class="sw" style="background:var(--m-secondary)"></span>Secondary</span>
+      </div>
+    </div>
+    <div class="card ex-detail" id="ex-detail"></div>
+  </aside>
 
-<div class="ex-grid" id="ex-grid">
-  {% for e in rows %}
-  <div class="card ex-card" data-cat="{{ e.category }}" data-name="{{ e.name }}">
-    <div class="ex-head">
-      <strong>{{ e.name }}</strong>
-      <span class="badge cat-{{ e.category }}">{{ e.category_label }}</span>
+  <!-- Filterable list -->
+  <section class="ex-main">
+    <input id="ex-search" type="search" placeholder="Search exercises…" autocomplete="off" spellcheck="false">
+    <div class="chips" id="ex-chips">
+      <button class="chip active" data-cat="all">All <span>{{ total }}</span></button>
+      {% for c in cats %}
+      <button class="chip" data-cat="{{ c.key }}">{{ c.label }} <span>{{ c.count }}</span></button>
+      {% endfor %}
     </div>
-    <div class="ex-meta muted">
-      {{ e.body_area }} · {{ e.equipment }}{% if e.unilateral %} · per-side{% endif %}{% if e.loadable %} · weightable{% endif %}
+    <div class="ex-list" id="ex-list" role="listbox" aria-label="Exercises">
+      {% for e in rows %}
+      <button class="ex-item" role="option" data-id="{{ e.id }}" data-cat="{{ e.category }}" data-name="{{ e.name }}">
+        <span class="ei-main">
+          <span class="ei-name">{{ e.name }}</span>
+          <span class="ei-sub">{{ e.body_area }} · {{ e.equipment }}</span>
+        </span>
+        <span class="ei-tags">
+          <span class="badge cat-{{ e.category }}">{{ e.category_label }}</span>
+          {% if e.rep == "ready" %}<span class="rep-pill ready" title="Rep detection ready">● rep</span>
+          {% else if e.rep == "hold" %}<span class="rep-pill hold" title="Timed hold">hold</span>
+          {% else %}<span class="rep-pill soon" title="Rep detection coming soon">soon</span>{% endif %}
+        </span>
+      </button>
+      {% endfor %}
     </div>
-    {% if !e.muscles.is_empty() %}<div class="ex-muscles muted">{{ e.muscles }}</div>{% endif %}
-    <div class="ex-tags">
-      <span class="tag">{{ e.counter_label }}</span>
-      {% if !e.bw_load.is_empty() %}<span class="tag">BW load ×{{ e.bw_load }}</span>{% endif %}
-    </div>
-  </div>
-  {% endfor %}
+    <p class="muted" id="ex-empty" style="display:none;margin-top:0.8rem">No exercises match.</p>
+  </section>
 </div>
-<p class="muted" id="ex-empty" style="display:none;margin-top:1rem">No exercises match.</p>
 
 <style>
-  .ex-controls { margin: 1rem 0 1.2rem; }
-  #ex-search {
-    width: 100%; box-sizing: border-box; padding: 0.6rem 0.8rem; font-size: 1rem;
-    border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
-    color: var(--ink); margin-bottom: 0.8rem;
+  .ex-wrap { display: grid; grid-template-columns: 320px 1fr; gap: 1.1rem; align-items: start; margin-top: 1rem; }
+  @media (max-width: 760px) { .ex-wrap { grid-template-columns: 1fr; } .ex-aside { position: static !important; } }
+
+  .ex-aside { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 0.9rem; }
+
+  /* Muscle map */
+  .m-vars { }
+  .readout { --m-base: #dcdfd0; --m-sil: #cbd0bd; --m-primary: var(--accent); --m-secondary: #e6871d;
+    background:
+      linear-gradient(rgba(92,107,58,0.08) 1px, transparent 1px) 0 0 / 100% 13px,
+      linear-gradient(90deg, rgba(92,107,58,0.08) 1px, transparent 1px) 0 0 / 13px 100%,
+      var(--panel-2, #f6f7f0);
+    padding: 1rem 1.1rem 0.9rem;
   }
-  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  .chip {
-    font: inherit; font-size: 0.85rem; cursor: pointer; padding: 0.35rem 0.7rem;
-    border: 1px solid var(--line); border-radius: 999px; background: var(--panel);
-    color: var(--muted); transition: all .12s;
-  }
+  .readout-title { font-family: var(--font-pixel); font-size: 0.5rem; color: var(--lcd); letter-spacing: 0.08em; margin-bottom: 0.3rem; }
+  .bodies { display: flex; justify-content: center; gap: 0.6rem; }
+  .body { flex: 1; max-width: 130px; text-align: center; }
+  .body svg { width: 100%; height: auto; display: block; }
+  .body .cap { font-family: var(--font-pixel); font-size: 0.42rem; color: var(--muted); letter-spacing: 0.1em; margin-top: 0.1rem; }
+  .readout .muscle { fill: var(--m-base); transition: fill .35s cubic-bezier(.2,.7,.3,1); stroke: var(--panel-2, #f6f7f0); stroke-width: 0.7; }
+  .readout .sil * { fill: var(--m-sil); }
+  .readout .sil { opacity: 0.5; }
+  .readout .mdetail { stroke: var(--m-sil); stroke-width: 0.8; fill: none; opacity: 0.55; pointer-events: none; }
+  .mlegend { display: flex; gap: 1rem; justify-content: center; margin-top: 0.5rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: 0.78rem; color: var(--muted); }
+  .mlegend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .mlegend .sw { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* Detail card */
+  .ex-detail { padding: 1rem 1.1rem; }
+  .ex-detail .dn { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .ex-detail .dn h2 { font-size: 1.25rem; margin: 0; letter-spacing: -0.01em; }
+  .ex-detail .rep-line { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .rep-line.ready { color: #2f9e44; } .rep-line.soon { color: var(--muted); } .rep-line.hold { color: #1971c2; }
+  .ex-detail .dmeta { font-size: 0.82rem; color: var(--muted); text-transform: capitalize; margin-bottom: 0.8rem; }
+  .dmrow { margin-bottom: 0.6rem; }
+  .dmrow .dlbl { display: flex; align-items: center; gap: 0.4rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.35rem; }
+  .dmrow .dlbl i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .dtags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .dtag { font-size: 0.82rem; padding: 0.2rem 0.55rem; border-radius: 7px; background: var(--panel-2, #f6f7f0); border: 1px solid var(--line); text-transform: capitalize; }
+
+  /* Search + chips */
+  #ex-search { width: 100%; box-sizing: border-box; padding: 0.6rem 0.8rem; font-size: 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); margin-bottom: 0.7rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.9rem; }
+  .chip { font: inherit; font-size: 0.85rem; cursor: pointer; padding: 0.32rem 0.68rem; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--muted); transition: all .12s; }
   .chip span { opacity: 0.6; font-size: 0.78rem; }
   .chip:hover { color: var(--ink); }
-  .chip.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-  .chip.active span { opacity: 0.7; }
+  .chip.active { background: var(--ink); color: var(--panel); border-color: var(--ink); }
 
-  .ex-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.9rem;
-  }
-  .ex-card { margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
-  .ex-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-  .ex-head strong { font-size: 1.02rem; }
-  .ex-meta { font-size: 0.85rem; text-transform: capitalize; }
-  .ex-muscles { font-size: 0.82rem; }
-  .ex-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: auto; padding-top: 0.3rem; }
-  .tag {
-    font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 6px;
-    background: #eef0e7; color: var(--muted);
-  }
+  /* List */
+  .ex-list { display: flex; flex-direction: column; gap: 0.3rem; }
+  .ex-item { font: inherit; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+    padding: 0.55rem 0.8rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); transition: border-color .12s, transform .12s; }
+  .ex-item:hover { border-color: var(--muted); }
+  .ex-item.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .ex-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ei-main { display: flex; flex-direction: column; min-width: 0; }
+  .ei-name { font-weight: 600; font-size: 0.98rem; }
+  .ei-sub { font-size: 0.78rem; color: var(--muted); text-transform: capitalize; }
+  .ei-tags { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 
-  /* Pattern badge colours (flat, white text on saturated fills). */
+  .rep-pill { font-size: 0.68rem; font-weight: 700; padding: 0.16rem 0.44rem; border-radius: 999px; letter-spacing: 0.01em; white-space: nowrap; }
+  .rep-pill.ready { background: #e7f5ea; color: #2f9e44; }
+  .rep-pill.soon { background: var(--panel-2, #f1f2ec); color: var(--muted); }
+  .rep-pill.hold { background: #e7f0f9; color: #1971c2; }
+
   .badge.cat-push, .badge.cat-pull, .badge.cat-hinge,
   .badge.cat-squat, .badge.cat-core, .badge.cat-other { color: #fff; }
-  .badge.cat-push   { background: #e8590c; }
-  .badge.cat-pull   { background: #1971c2; }
-  .badge.cat-hinge  { background: #6741d9; }
-  .badge.cat-squat  { background: #2f9e44; }
-  .badge.cat-core   { background: #c2255c; }
-  .badge.cat-other  { background: #868e96; }
+  .badge.cat-push { background: #e8590c; } .badge.cat-pull { background: #1971c2; }
+  .badge.cat-hinge { background: #6741d9; } .badge.cat-squat { background: #2f9e44; }
+  .badge.cat-core { background: #c2255c; } .badge.cat-other { background: #868e96; }
 </style>
 
 <script>
 (function () {
+  var EX = {{ exercises_json|safe }};
+  var BY = {}; EX.forEach(function (e) { BY[e.id] = e; });
+
+  // Muscle token -> map region. Covers the whole catalog vocabulary.
+  var MAP = {
+    'pecs':'chest','upper pecs':'chest','lower pecs':'chest','chest':'chest',
+    'delts':'shoulders','front delts':'shoulders','side delts':'shoulders','shoulders':'shoulders',
+    'rear delts':'reardelts',
+    'biceps':'biceps','brachialis':'biceps',
+    'triceps':'triceps',
+    'forearms':'forearms','grip':'forearms','wrists':'forearms',
+    'lats':'lats','rhomboids':'upperback','upper back':'upperback',
+    'traps':'traps','upper traps':'traps','erectors':'lowerback',
+    'abs':'abs','core':'abs','hip flexors':'abs','obliques':'obliques',
+    'quads':'quads','glutes':'glutes','hamstrings':'hamstrings','calves':'calves'
+  };
+  var REGIONS = ['chest','shoulders','reardelts','biceps','triceps','forearms','lats',
+    'upperback','traps','lowerback','abs','obliques','quads','glutes','hamstrings','calves'];
+
+  function cssv(n) { return getComputedStyle(document.querySelector('.readout')).getPropertyValue(n).trim(); }
+  function setRegion(r, c) {
+    document.querySelectorAll('.muscle[data-muscle="' + r + '"]').forEach(function (el) { el.style.fill = c; });
+  }
+
+  var curId = EX.length ? EX[0].id : null;
+
+  function paint(e) {
+    var base = cssv('--m-base'), sec = cssv('--m-secondary'), pri = cssv('--m-primary');
+    var level = {};
+    e.secondary.forEach(function (m) { if (MAP[m]) level[MAP[m]] = 'secondary'; });
+    e.primary.forEach(function (m) { if (MAP[m]) level[MAP[m]] = 'primary'; }); // primary wins
+    REGIONS.forEach(function (r) {
+      setRegion(r, level[r] === 'primary' ? pri : level[r] === 'secondary' ? sec : base);
+    });
+  }
+
+  function detail(e) {
+    function tags(list) {
+      if (!list.length) return '<span class="dtag" style="opacity:.6">—</span>';
+      return list.map(function (m) { return '<span class="dtag">' + m + '</span>'; }).join('');
+    }
+    var meta = [e.body_area, e.equipment];
+    if (e.unilateral) meta.push('per side');
+    if (e.loadable) meta.push('weightable');
+    if (e.bw_load) meta.push('bodyweight load ×' + e.bw_load);
+    document.getElementById('ex-detail').innerHTML =
+      '<div class="dn"><h2>' + e.name + '</h2><span class="badge cat-' + e.category + '">' + e.category_label + '</span></div>' +
+      '<div class="rep-line ' + e.rep + '">' + (e.rep === 'ready' ? '● ' : e.rep === 'hold' ? '' : '○ ') + e.rep_label + '</div>' +
+      '<div class="dmeta">' + meta.join(' · ') + '</div>' +
+      '<div class="dmrow"><div class="dlbl"><i style="background:var(--accent)"></i>Primary movers</div><div class="dtags">' + tags(e.primary) + '</div></div>' +
+      '<div class="dmrow"><div class="dlbl"><i style="background:#e6871d"></i>Secondary / stabilisers</div><div class="dtags">' + tags(e.secondary) + '</div></div>';
+  }
+
+  function select(id) {
+    curId = id;
+    var e = BY[id];
+    if (!e) return;
+    paint(e); detail(e);
+    document.querySelectorAll('.ex-item').forEach(function (it) {
+      it.classList.toggle('active', Number(it.dataset.id) === id);
+    });
+  }
+
+  // List interaction
+  document.querySelectorAll('.ex-item').forEach(function (it) {
+    it.addEventListener('click', function () { select(Number(it.dataset.id)); });
+  });
+
+  // Filter
   var search = document.getElementById('ex-search');
   var chips = Array.prototype.slice.call(document.querySelectorAll('#ex-chips .chip'));
-  var cards = Array.prototype.slice.call(document.querySelectorAll('#ex-grid .ex-card'));
+  var items = Array.prototype.slice.call(document.querySelectorAll('.ex-item'));
   var empty = document.getElementById('ex-empty');
   var cat = 'all';
-
-  function apply() {
-    var q = search.value.trim().toLowerCase();
-    var shown = 0;
-    cards.forEach(function (c) {
-      var okCat = cat === 'all' || c.getAttribute('data-cat') === cat;
-      var okName = !q || c.getAttribute('data-name').toLowerCase().indexOf(q) !== -1;
+  function applyFilter() {
+    var q = search.value.trim().toLowerCase(), shown = 0;
+    items.forEach(function (it) {
+      var okCat = cat === 'all' || it.dataset.cat === cat;
+      var okName = !q || it.dataset.name.toLowerCase().indexOf(q) !== -1;
       var vis = okCat && okName;
-      c.style.display = vis ? '' : 'none';
+      it.style.display = vis ? '' : 'none';
       if (vis) shown++;
     });
     empty.style.display = shown ? 'none' : '';
   }
-
   chips.forEach(function (ch) {
     ch.addEventListener('click', function () {
       chips.forEach(function (x) { x.classList.remove('active'); });
-      ch.classList.add('active');
-      cat = ch.getAttribute('data-cat');
-      apply();
+      ch.classList.add('active'); cat = ch.dataset.cat; applyFilter();
     });
   });
-  search.addEventListener('input', apply);
+  search.addEventListener('input', applyFilter);
+
+  if (curId != null) select(curId);
 })();
 </script>
 {% endblock %}
