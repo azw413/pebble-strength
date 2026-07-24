@@ -88,7 +88,7 @@ pub fn dashboard_json(
     user_id: i32,
     q: &DashQuery,
 ) -> Result<serde_json::Value, AppError> {
-    let selected_ex = q.exercise();
+    let specific_ex = q.exercise(); // None (empty/"max") => the "Max" line (default)
     let today = Utc::now().naive_utc().date();
     let (start, end, label) = window_bounds(&q.window, q.offset, today);
     let start_dt = start.and_hms_opt(0, 0, 0).unwrap();
@@ -114,6 +114,19 @@ pub fn dashboard_json(
         .select((exercises::watch_movement_id, exercises::name))
         .load::<(i32, String)>(conn)?
         .into_iter()
+        .collect();
+    let split_m = |s: &str| {
+        s.split(", ").filter(|x| !x.is_empty()).map(str::to_string).collect::<Vec<String>>()
+    };
+    let musc: HashMap<i32, (Vec<String>, Vec<String>)> = exercises::table
+        .select((
+            exercises::watch_movement_id,
+            exercises::primary_muscles,
+            exercises::secondary_muscles,
+        ))
+        .load::<(i32, String, String)>(conn)?
+        .into_iter()
+        .map(|(mv, p, s)| (mv, (split_m(&p), split_m(&s))))
         .collect();
     let bw_log: Vec<(NaiveDate, f32)> = bodyweights::table
         .filter(bodyweights::user_id.eq(user_id))
@@ -147,16 +160,26 @@ pub fn dashboard_json(
     };
 
     let mut vol_buckets = vec![0.0f32; bucket_count];
-    let mut rm_buckets: Vec<Option<f32>> = vec![None; bucket_count];
+    let mut per_ex: HashMap<i32, Vec<Option<f32>>> = HashMap::new();
+    let mut muscle_buckets: Vec<HashMap<String, f32>> = vec![HashMap::new(); bucket_count];
     let mut total_volume = 0.0f32;
-    let mut best_1rm: Option<f32> = None;
     let mut hold_secs = 0i64;
 
     for s in &sess {
         let bw = bw_for(&bw_log, s.performed_on.date());
         let bi = bucket_of(s.performed_on.date());
-        let mut sess_1rm: Option<f32> = None;
+        let mut sess_ex_1rm: HashMap<i32, f32> = HashMap::new();
         for st in sets.iter().filter(|x| x.session_id == s.id) {
+            // Muscle heat: every set (rep or hold) works its muscles.
+            if let Some((prim, sec)) = musc.get(&st.movement_id) {
+                let mb = &mut muscle_buckets[bi];
+                for m in prim {
+                    *mb.entry(m.clone()).or_insert(0.0) += 1.0;
+                }
+                for m in sec {
+                    *mb.entry(m.clone()).or_insert(0.0) += 0.45;
+                }
+            }
             if st.is_timed {
                 hold_secs += st.actual as i64;
                 continue;
@@ -166,20 +189,46 @@ pub fn dashboard_json(
             let vol = st.actual as f32 * load;
             vol_buckets[bi] += vol;
             total_volume += vol;
-            if Some(st.movement_id) == selected_ex && st.actual > 0 {
+            if st.actual > 0 {
                 let e1rm = load * (1.0 + st.actual as f32 / 30.0);
-                sess_1rm = Some(sess_1rm.map_or(e1rm, |b: f32| b.max(e1rm)));
+                sess_ex_1rm
+                    .entry(st.movement_id)
+                    .and_modify(|b| *b = b.max(e1rm))
+                    .or_insert(e1rm);
             }
         }
-        if let Some(v) = sess_1rm {
-            best_1rm = Some(best_1rm.map_or(v, |b: f32| b.max(v)));
-            rm_buckets[bi] = Some(rm_buckets[bi].map_or(v, |b: f32| b.max(v)));
+        for (mv, v) in sess_ex_1rm {
+            let b = per_ex.entry(mv).or_insert_with(|| vec![None; bucket_count]);
+            b[bi] = Some(b[bi].map_or(v, |x: f32| x.max(v)));
         }
     }
 
+    // 1RM line: the chosen exercise, or "Max" (default) = the per-bucket best
+    // across exercises with at least two data points in the window.
+    let rm_buckets: Vec<Option<f32>> = if let Some(exm) = specific_ex {
+        per_ex.get(&exm).cloned().unwrap_or_else(|| vec![None; bucket_count])
+    } else {
+        let eligible: Vec<&Vec<Option<f32>>> = per_ex
+            .values()
+            .filter(|b| b.iter().filter(|x| x.is_some()).count() >= 2)
+            .collect();
+        (0..bucket_count)
+            .map(|i| {
+                eligible
+                    .iter()
+                    .filter_map(|b| b[i])
+                    .fold(None, |acc: Option<f32>, v| Some(acc.map_or(v, |a| a.max(v))))
+            })
+            .collect()
+    };
+    let best_1rm: Option<f32> = rm_buckets
+        .iter()
+        .filter_map(|x| *x)
+        .fold(None, |acc: Option<f32>, v| Some(acc.map_or(v, |a: f32| a.max(v))));
+
     // New PB: the selected exercise's best 1RM this window beats its best in
     // every earlier session.
-    let is_pb = match (selected_ex, best_1rm) {
+    let is_pb = match (specific_ex, best_1rm) {
         (Some(exm), Some(window_best)) => {
             let prior: Vec<(chrono::NaiveDateTime, i32, Option<f32>)> = session_sets::table
                 .inner_join(sessions::table)
@@ -214,6 +263,7 @@ pub fn dashboard_json(
                 "label": axis_labels[i],
                 "volume": vol_buckets[i].round(),
                 "one_rm": rm_buckets[i].map(|v| (v * 10.0).round() / 10.0),
+                "muscles": muscle_buckets[i].clone(),
             })
         })
         .collect();
@@ -242,7 +292,7 @@ pub fn dashboard_json(
         "offset": q.offset,
         "label": label,
         "can_next": q.offset < 0,
-        "selected_exercise": selected_ex,
+        "selected_exercise": specific_ex,
         "exercises": exercises_json,
         "axis": axis,
         "insights": {

@@ -37,11 +37,97 @@
   </div>
   <div class="row">
     <label>1RM line for
-      <select id="expick"><option value="">—</option></select>
+      <select id="expick"><option value="">Max (best lift)</option></select>
     </label>
   </div>
   <svg id="chart" viewBox="0 0 680 300" style="width:100%;height:auto;font:11px sans-serif"></svg>
   <div class="muted" id="charthint"></div>
+</div>
+
+<style>
+  #heatcard .heat-bodies { display: flex; justify-content: center; gap: 1.4rem; max-width: 420px; margin: 0.7rem auto 0; }
+  .heat-body { flex: 1; max-width: 170px; text-align: center; }
+  .heat-body svg { width: 100%; height: auto; display: block; }
+  .heat-body .cap { font-family: var(--font-pixel); font-size: 0.42rem; color: var(--muted); letter-spacing: 0.1em; margin-top: 0.1rem; }
+  #heatcard .muscle { fill: #dcdfd0; transition: fill .3s cubic-bezier(.2,.7,.3,1); stroke: var(--panel); stroke-width: 0.7; }
+  #heatcard .sil * { fill: #cbd0bd; } #heatcard .sil { opacity: 0.5; }
+  #heatcard .mdetail { stroke: #cbd0bd; stroke-width: 0.8; fill: none; opacity: 0.5; pointer-events: none; }
+  .heat-legend { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.7rem; font-size: 0.8rem; color: var(--muted); }
+  .heat-legend .ramp { width: 80px; height: 11px; border-radius: 3px; background: linear-gradient(90deg, #dcdfd0, #e8871e, #e5484d); }
+  #chart .hovcol { cursor: pointer; }
+</style>
+
+<div class="card" id="heatcard">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;flex-wrap:wrap">
+    <h2 style="font-size:1.1rem;margin:0">Muscles worked</h2>
+    <span class="muted" id="heathint" style="font-size:0.85rem"></span>
+  </div>
+  <div class="heat-bodies">
+    <div class="heat-body">
+      <svg viewBox="0 0 200 380" role="img" aria-label="Front muscle heat map">
+        <defs>
+          <path id="arm" d="M60,76 C47,82 42,110 44,140 C45,168 43,194 48,214 L39,214 C34,194 33,164 33,132 C33,104 39,80 53,72 Z"/>
+          <path id="leg" d="M74,213 C66,246 70,290 77,318 C75,342 76,360 79,379 L95,379 C97,360 97,342 95,318 C98,290 99,246 98,214 Z"/>
+          <path id="f_delt" d="M60,74 C50,75 45,86 48,98 C57,95 66,90 67,80 C65,75 63,74 60,74 Z"/>
+          <path id="f_pec" d="M97,88 C84,86 68,90 64,100 C62,110 70,118 84,117 C93,116 98,107 98,97 Z"/>
+          <path id="f_obl" d="M88,124 C81,126 78,142 82,160 C84,168 88,168 88,164 Z"/>
+          <path id="f_bi" d="M45,108 C39,111 38,128 42,140 C46,142 50,139 50,130 C50,120 49,109 45,108 Z"/>
+          <path id="f_fore" d="M43,146 C38,150 37,174 41,198 C44,201 47,199 48,192 C48,172 47,150 44,147 Z"/>
+          <path id="f_quad" d="M78,218 C70,228 73,270 80,302 C85,306 90,303 92,290 C94,260 93,226 90,218 C86,214 82,214 78,218 Z"/>
+        </defs>
+        <g class="sil">
+          <ellipse cx="100" cy="30" rx="19" ry="22"/>
+          <path d="M89,49 L111,49 L109,66 L91,66 Z"/>
+          <path d="M60,74 C57,104 66,150 75,180 C72,192 71,204 72,212 L128,212 C129,204 128,192 125,180 C134,150 143,104 140,74 C121,66 79,66 60,74 Z"/>
+          <use href="#arm"/><use href="#arm" transform="translate(200,0) scale(-1,1)"/>
+          <use href="#leg"/><use href="#leg" transform="translate(200,0) scale(-1,1)"/>
+        </g>
+        <g>
+          <use class="muscle" data-muscle="shoulders" href="#f_delt"/><use class="muscle" data-muscle="shoulders" href="#f_delt" transform="translate(200,0) scale(-1,1)"/>
+          <use class="muscle" data-muscle="chest" href="#f_pec"/><use class="muscle" data-muscle="chest" href="#f_pec" transform="translate(200,0) scale(-1,1)"/>
+          <path class="muscle" data-muscle="abs" d="M89,120 C89,118 111,118 111,120 L109,178 C109,182 91,182 91,178 Z"/>
+          <use class="muscle" data-muscle="obliques" href="#f_obl"/><use class="muscle" data-muscle="obliques" href="#f_obl" transform="translate(200,0) scale(-1,1)"/>
+          <use class="muscle" data-muscle="biceps" href="#f_bi"/><use class="muscle" data-muscle="biceps" href="#f_bi" transform="translate(200,0) scale(-1,1)"/>
+          <use class="muscle" data-muscle="forearms" href="#f_fore"/><use class="muscle" data-muscle="forearms" href="#f_fore" transform="translate(200,0) scale(-1,1)"/>
+          <use class="muscle" data-muscle="quads" href="#f_quad"/><use class="muscle" data-muscle="quads" href="#f_quad" transform="translate(200,0) scale(-1,1)"/>
+        </g>
+        <g class="mdetail"><line x1="100" y1="122" x2="100" y2="178"/><line x1="91" y1="136" x2="109" y2="136"/><line x1="91" y1="150" x2="109" y2="150"/><line x1="92" y1="164" x2="108" y2="164"/></g>
+      </svg>
+      <div class="cap">FRONT</div>
+    </div>
+    <div class="heat-body">
+      <svg viewBox="0 0 200 380" role="img" aria-label="Back muscle heat map">
+        <defs>
+          <path id="b_delt" d="M60,74 C50,75 45,86 48,98 C57,95 66,90 67,80 C65,75 63,74 60,74 Z"/>
+          <path id="b_lat" d="M85,112 C79,127 73,146 71,162 C77,172 85,177 91,179 C90,152 88,130 86,113 Z"/>
+          <path id="b_tri" d="M45,108 C39,111 38,128 42,140 C46,142 50,139 50,130 C50,120 49,109 45,108 Z"/>
+          <path id="b_glute" d="M100,186 C85,186 75,197 77,212 C79,223 94,225 101,217 C103,205 103,190 100,186 Z"/>
+          <path id="b_ham" d="M78,220 C71,230 73,272 80,304 C85,308 90,305 91,292 C93,262 92,228 89,220 C86,216 82,216 78,220 Z"/>
+          <path id="b_calf" d="M80,314 C73,320 76,348 82,366 C86,369 90,367 92,356 C94,338 92,318 88,314 Z"/>
+        </defs>
+        <g class="sil">
+          <ellipse cx="100" cy="30" rx="19" ry="22"/>
+          <path d="M89,49 L111,49 L109,66 L91,66 Z"/>
+          <path d="M60,74 C57,104 66,150 75,180 C72,192 71,204 72,212 L128,212 C129,204 128,192 125,180 C134,150 143,104 140,74 C121,66 79,66 60,74 Z"/>
+          <use href="#arm"/><use href="#arm" transform="translate(200,0) scale(-1,1)"/>
+          <use href="#leg"/><use href="#leg" transform="translate(200,0) scale(-1,1)"/>
+        </g>
+        <g>
+          <path class="muscle" data-muscle="traps" d="M100,64 L80,78 L85,110 L115,110 L120,78 Z"/>
+          <use class="muscle" data-muscle="reardelts" href="#b_delt"/><use class="muscle" data-muscle="reardelts" href="#b_delt" transform="translate(200,0) scale(-1,1)"/>
+          <path class="muscle" data-muscle="upperback" d="M90,96 C90,94 110,94 110,96 L108,116 C108,118 92,118 92,116 Z"/>
+          <use class="muscle" data-muscle="lats" href="#b_lat"/><use class="muscle" data-muscle="lats" href="#b_lat" transform="translate(200,0) scale(-1,1)"/>
+          <use class="muscle" data-muscle="triceps" href="#b_tri"/><use class="muscle" data-muscle="triceps" href="#b_tri" transform="translate(200,0) scale(-1,1)"/>
+          <path class="muscle" data-muscle="lowerback" d="M92,120 C92,118 108,118 108,120 L106,150 C106,152 94,152 94,150 Z"/>
+          <use class="muscle" data-muscle="glutes" href="#b_glute"/><use class="muscle" data-muscle="glutes" href="#b_glute" transform="translate(200,0) scale(-1,1)"/>
+          <use class="muscle" data-muscle="hamstrings" href="#b_ham"/><use class="muscle" data-muscle="hamstrings" href="#b_ham" transform="translate(200,0) scale(-1,1)"/>
+          <use class="muscle" data-muscle="calves" href="#b_calf"/><use class="muscle" data-muscle="calves" href="#b_calf" transform="translate(200,0) scale(-1,1)"/>
+        </g>
+      </svg>
+      <div class="cap">BACK</div>
+    </div>
+  </div>
+  <div class="heat-legend"><span class="ramp"></span>Fewer → more sets</div>
 </div>
 
 <div class="card">
@@ -68,6 +154,7 @@
 const SVGNS = 'http://www.w3.org/2000/svg';
 const BODYWEIGHTS = {{ bodyweights_json|safe }};
 let win = 'month', offset = 0, ex = '';
+let DASH = null;
 
 function svg(tag, attrs, text) {
   const n = document.createElementNS(SVGNS, tag);
@@ -173,6 +260,19 @@ function renderChart(d) {
     });
     if (dpath) svgEl.appendChild(svg('path', { d: dpath, fill: 'none', stroke: '#d33', 'stroke-width': 2 }));
   }
+
+  // Transparent hover columns: isolate a bucket's muscles on the heat map.
+  S.forEach((s, i) => {
+    const cx = m.l + slot * (i + 0.5);
+    const col = svg('rect', { x: cx - slot / 2, y: m.t, width: slot, height: ih, fill: 'transparent', class: 'hovcol' });
+    col.addEventListener('mouseenter', () => {
+      renderHeat(s.muscles || {});
+      const has = s.muscles && Object.keys(s.muscles).length;
+      document.getElementById('heathint').textContent = s.label + (has ? '' : ' · rest day');
+    });
+    svgEl.appendChild(col);
+  });
+  svgEl.onmouseleave = heatWindow;
 }
 
 function celebratePB(isPb) {
@@ -229,6 +329,42 @@ function drawBwChart() {
     fill: '#5c6b3a', 'font-weight': '700' }, `${last.kg.toFixed(1)} kg`));
 }
 
+// ---- Muscle heat map ----
+const HMAP = {
+  'pecs':'chest','upper pecs':'chest','lower pecs':'chest','chest':'chest',
+  'delts':'shoulders','front delts':'shoulders','side delts':'shoulders','shoulders':'shoulders',
+  'rear delts':'reardelts','biceps':'biceps','brachialis':'biceps','triceps':'triceps',
+  'forearms':'forearms','grip':'forearms','wrists':'forearms','lats':'lats',
+  'rhomboids':'upperback','upper back':'upperback','traps':'traps','upper traps':'traps',
+  'erectors':'lowerback','abs':'abs','core':'abs','hip flexors':'abs','obliques':'obliques',
+  'quads':'quads','glutes':'glutes','hamstrings':'hamstrings','calves':'calves'
+};
+const HREGIONS = ['chest','shoulders','reardelts','biceps','triceps','forearms','lats','upperback','traps','lowerback','abs','obliques','quads','glutes','hamstrings','calves'];
+const HBASE = '#dcdfd0';
+function hlerp(a, b, t) { return a.map((x, i) => Math.round(x + (b[i] - x) * t)); }
+function heatColor(t) {
+  const base = [220,223,208], amb = [232,135,30], red = [229,72,77];
+  if (t <= 0) return HBASE;
+  const c = t < 0.5 ? hlerp(base, amb, t / 0.5) : hlerp(amb, red, (t - 0.5) / 0.5);
+  return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+}
+function setRegionH(r, c) { document.querySelectorAll('#heatcard .muscle[data-muscle="' + r + '"]').forEach(e => e.style.fill = c); }
+function renderHeat(mObj) {
+  const reg = {};
+  for (const tok in mObj) { const r = HMAP[tok]; if (r) reg[r] = (reg[r] || 0) + mObj[tok]; }
+  let max = 0; for (const r in reg) if (reg[r] > max) max = reg[r];
+  HREGIONS.forEach(r => setRegionH(r, max > 0 ? heatColor((reg[r] || 0) / max) : HBASE));
+}
+function aggMuscles() {
+  const agg = {};
+  (DASH ? DASH.axis : []).forEach(a => { const m = a.muscles || {}; for (const k in m) agg[k] = (agg[k] || 0) + m[k]; });
+  return agg;
+}
+function heatWindow() {
+  renderHeat(aggMuscles());
+  document.getElementById('heathint').textContent = 'Whole ' + win + ' · hover a bar for one day';
+}
+
 async function load() {
   const exq = ex ? `&ex=${ex}` : '';
   const res = await fetch(`/api/dashboard?window=${win}&offset=${offset}${exq}`);
@@ -246,13 +382,13 @@ async function load() {
       sel.appendChild(o);
     }
     sel.dataset.filled = '1';
-    // default to the first exercise so the 1RM line shows something
-    if (ex === '' && d.exercises.length) { ex = String(d.exercises[0].movement_id); sel.value = ex; return load(); }
   }
-  sel.value = ex;
+  sel.value = ex;  // '' -> the "Max (best lift)" option
 
   renderInsights(d);
+  DASH = d;
   renderChart(d);
+  heatWindow();
   celebratePB(d.insights.pb);
   document.querySelectorAll('[data-window]').forEach(b =>
     b.classList.toggle('primary', b.dataset.window === win));
