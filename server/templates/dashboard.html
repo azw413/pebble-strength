@@ -154,7 +154,7 @@
 const SVGNS = 'http://www.w3.org/2000/svg';
 const BODYWEIGHTS = {{ bodyweights_json|safe }};
 let win = 'month', offset = 0, ex = '';
-let DASH = null;
+let DASH = null, barEls = [], selBucket = null;
 
 function svg(tag, attrs, text) {
   const n = document.createElementNS(SVGNS, tag);
@@ -197,6 +197,7 @@ function exName() {
 function renderChart(d) {
   const svgEl = document.getElementById('chart');
   svgEl.innerHTML = '';
+  selBucket = null; barEls = [];  // a new period clears any day selection
   const W = 680, H = 300, m = { t: 20, r: 48, b: 46, l: 52 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const S = d.axis;
@@ -235,10 +236,12 @@ function renderChart(d) {
   S.forEach((s, i) => {
     const cx = m.l + slot * (i + 0.5);
     const bh = ih * (s.volume / maxVol);
-    svgEl.appendChild(svg('rect', {
+    const bar = svg('rect', {
       x: cx - bw / 2, y: m.t + ih - bh, width: bw, height: bh,
       fill: '#d33', 'fill-opacity': 0.22
-    }));
+    });
+    svgEl.appendChild(bar);
+    barEls[i] = bar;
     // x label from the server-provided bucket label (thinned if crowded)
     if (n <= 16 || i % Math.ceil(n / 16) === 0) {
       const t = svg('text', { x: cx, y: m.t + ih + 14, 'text-anchor': 'end', fill: '#777',
@@ -261,18 +264,15 @@ function renderChart(d) {
     if (dpath) svgEl.appendChild(svg('path', { d: dpath, fill: 'none', stroke: '#d33', 'stroke-width': 2 }));
   }
 
-  // Transparent hover columns: isolate a bucket's muscles on the heat map.
+  // Full-height columns: hover previews a day, click/tap selects it (deeper bar).
   S.forEach((s, i) => {
     const cx = m.l + slot * (i + 0.5);
     const col = svg('rect', { x: cx - slot / 2, y: m.t, width: slot, height: ih, fill: 'transparent', class: 'hovcol' });
-    col.addEventListener('mouseenter', () => {
-      renderHeat(s.muscles || {});
-      const has = s.muscles && Object.keys(s.muscles).length;
-      document.getElementById('heathint').textContent = s.label + (has ? '' : ' · rest day');
-    });
+    col.addEventListener('mouseenter', () => hoverBucket(i));
+    col.addEventListener('click', () => clickBucket(i));
     svgEl.appendChild(col);
   });
-  svgEl.onmouseleave = heatWindow;
+  svgEl.onmouseleave = leaveChart;
 }
 
 function celebratePB(isPb) {
@@ -362,8 +362,27 @@ function aggMuscles() {
 }
 function heatWindow() {
   renderHeat(aggMuscles());
-  document.getElementById('heathint').textContent = 'Whole ' + win + ' · hover a bar for one day';
+  document.getElementById('heathint').textContent = 'Whole ' + win + ' · tap or hover a bar for one day';
 }
+// Deeper fill on the selected bar; a lighter lift on a transient hover.
+function refreshBars(hoverIdx) {
+  barEls.forEach((el, i) => {
+    let op = i === selBucket ? 0.62 : 0.22;
+    if (hoverIdx === i && i !== selBucket) op = 0.42;
+    el.setAttribute('fill-opacity', op);
+  });
+}
+function showHeatFor(idx) {
+  if (idx == null) { heatWindow(); return; }
+  const s = DASH.axis[idx];
+  renderHeat(s.muscles || {});
+  const has = s.muscles && Object.keys(s.muscles).length;
+  document.getElementById('heathint').textContent =
+    s.label + (has ? '' : ' · rest day') + (idx === selBucket ? ' · tap again to clear' : '');
+}
+function hoverBucket(i) { refreshBars(i); showHeatFor(i); }
+function leaveChart() { refreshBars(null); showHeatFor(selBucket); }  // revert to selection or aggregate
+function clickBucket(i) { selBucket = selBucket === i ? null : i; refreshBars(null); showHeatFor(selBucket); }
 
 async function load() {
   const exq = ex ? `&ex=${ex}` : '';
@@ -399,6 +418,10 @@ document.querySelectorAll('[data-window]').forEach(b =>
 document.getElementById('prev').onclick = () => { offset -= 1; load(); };
 document.getElementById('next').onclick = () => { if (offset < 0) { offset += 1; load(); } };
 document.getElementById('expick').onchange = e => { ex = e.target.value; load(); };
+// Tap/click anywhere off the chart clears a day selection.
+document.addEventListener('click', e => {
+  if (selBucket !== null && !e.target.closest('#chart')) { selBucket = null; leaveChart(); }
+});
 
 drawBwChart();
 load();
