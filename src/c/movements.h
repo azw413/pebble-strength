@@ -17,7 +17,7 @@ static const MovementInfo MOVEMENTS[] = {
   {"Push-up", 900, 5, 0},  // 4
   {"Dip", 900, 5, 0},  // 5
   {"Lateral Raise", 800, 5, 0},  // 6
-  {"Biceps Curl", 700, 5, 0},  // 7
+  {"Biceps Curl", 900, 5, 0},  // 7
   {"Hammer Curl", 700, 5, 0},  // 8
   {"Triceps Extension", 700, 5, 0},  // 9
   {"Triceps Pushdown", 700, 5, 0},  // 10

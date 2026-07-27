@@ -146,7 +146,14 @@
         "forearms"
       ],
       "profile": {
-        "min_rep_ms": 700
+        "axis": "x",
+        "lp_ms": 500,
+        "hp_ms": 3000,
+        "thr_pct": 25,
+        "min_rep_ms": 900,
+        "min_amp": 60,
+        "warmup_ms": 700,
+        "confidence": 0.9
       },
       "load_factor": 0.0,
       "category": "pull",
@@ -649,7 +656,17 @@
       "category": "pull",
       "equipment": "rings",
       "loadable": true,
-      "unilateral": false
+      "unilateral": false,
+      "profile": {
+        "axis": "y",
+        "lp_ms": 500,
+        "hp_ms": 3000,
+        "thr_pct": 30,
+        "min_rep_ms": 900,
+        "min_amp": 60,
+        "warmup_ms": 700,
+        "confidence": 0.6
+      }
     },
     {
       "id": 35,
