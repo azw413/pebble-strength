@@ -150,6 +150,9 @@ pub struct RecordingUpload {
     /// Stable per-set id from the watch (idempotency key vs the offline queue).
     #[serde(default)]
     pub client_set_id: Option<i64>,
+    /// Programmed weight in kg (0/absent = bodyweight).
+    #[serde(default)]
+    pub weight_kg: Option<f32>,
     /// Base64 of packed little-endian i16 x,y,z triplets (mG).
     pub data: String,
 }
@@ -221,6 +224,7 @@ pub async fn upload_recording(
             up.is_timed,
             up.actual,
             work,
+            up.weight_kg,
             Utc::now().naive_utc(),
         )?;
         Ok(id)
@@ -242,6 +246,9 @@ pub struct SessionSetUpload {
     pub is_timed: bool,
     #[serde(default)]
     pub work_secs: Option<i32>,
+    /// Programmed weight in kg (0/absent = bodyweight).
+    #[serde(default)]
+    pub weight_kg: Option<f32>,
     /// Unix seconds when the set was performed (watch clock).
     pub performed_at: i64,
 }
@@ -278,6 +285,7 @@ pub async fn sessions(
             up.is_timed,
             up.actual,
             up.work_secs,
+            up.weight_kg,
             performed_at,
         )?;
         Ok(())

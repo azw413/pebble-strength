@@ -30,6 +30,7 @@ pub fn log_recording(
     is_timed: bool,
     actual: i32,
     work_secs: Option<i32>,
+    weight_kg: Option<f32>,
     performed_at: NaiveDateTime,
 ) -> Result<i32, AppError> {
     // Idempotent on the watch's stable set id: if this set is already logged
@@ -85,7 +86,7 @@ pub fn log_recording(
             session_sets::exercise_name.eq(exercise_name),
             session_sets::is_timed.eq(is_timed),
             session_sets::actual.eq(actual),
-            session_sets::weight_kg.eq::<Option<f32>>(None),
+            session_sets::weight_kg.eq(weight_kg.filter(|w| *w > 0.0)),
             session_sets::work_secs.eq(work_secs),
             session_sets::recording_id.eq(recording_id),
             session_sets::performed_at.eq(performed_at),
@@ -129,7 +130,7 @@ pub fn backfill(conn: &mut SqliteConnection) -> Result<usize, AppError> {
             continue;
         }
         let work = if rate > 0 { Some(count / rate) } else { None };
-        log_recording(conn, uid, Some(id), None, &won, mv, &exn, timed, actual, work, at)?;
+        log_recording(conn, uid, Some(id), None, &won, mv, &exn, timed, actual, work, None, at)?;
         n += 1;
     }
     Ok(n)

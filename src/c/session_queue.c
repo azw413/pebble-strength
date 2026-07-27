@@ -5,7 +5,7 @@
 #define PERSIST_SQ_NEXTID 41
 #define PERSIST_SQ_BASE 50  // per-slot records: 50 .. 50+SQ_MAX-1
 
-#define SQ_REC_BYTES 38  // packed on-persist record size
+#define SQ_REC_BYTES 40  // packed on-persist record size
 
 static SqSet s_q[SQ_MAX];
 static uint8_t s_len;
@@ -29,7 +29,7 @@ static uint32_t rd32(const uint8_t *p) {
 }
 
 // Packed record: [0..3]id [4..7]at [8]mv [9]set [10]timed [11]actual
-//                [12..13]work [14..37]name(24)
+//                [12..13]work [14..37]name(24) [38..39]weight_q
 static void pack(const SqSet *s, uint8_t *r) {
   wr32(r, s->client_set_id);
   wr32(r + 4, s->performed_at);
@@ -39,6 +39,7 @@ static void pack(const SqSet *s, uint8_t *r) {
   r[11] = s->actual;
   wr16(r + 12, s->work_secs);
   memcpy(r + 14, s->workout_name, 24);
+  wr16(r + 38, s->weight_q);
 }
 static void unpack(const uint8_t *r, SqSet *s) {
   s->client_set_id = rd32(r);
@@ -50,6 +51,7 @@ static void unpack(const uint8_t *r, SqSet *s) {
   s->work_secs = rd16(r + 12);
   memcpy(s->workout_name, r + 14, 24);
   s->workout_name[24] = '\0';
+  s->weight_q = rd16(r + 38);
 }
 
 static void save(void) {

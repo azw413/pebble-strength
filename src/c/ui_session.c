@@ -50,6 +50,7 @@ static bool s_accel_on;
 static bool s_label_pending;
 static uint8_t s_label_ex, s_label_set;
 static uint32_t s_label_client_id;  // stable set id, shared by accel + queue paths
+static uint16_t s_label_weight_q;   // programmed weight for the pending set
 
 static PackExercise *cur_ex(void) { return &s_workout.exercises[s_cur_ex]; }
 static PackSet cur_set(void) { return cur_ex()->sets[s_cur_set]; }
@@ -117,6 +118,7 @@ static void finalize_label(void) {
     set.set_index = s_label_set;
     set.timed = (e->flags & PACK_FLAG_TIMED) != 0;
     set.actual = actual;
+    set.weight_q = e->weight_q;
     set.work_secs = s_work_secs[s_label_ex][s_label_set];
     strncpy(set.workout_name, s_workout.name, sizeof set.workout_name - 1);
     set.workout_name[sizeof set.workout_name - 1] = '\0';
@@ -225,8 +227,9 @@ static void finish_set(uint8_t actual) {
       cur_timed() ? (uint16_t)actual : (uint16_t)s_work_elapsed;
   accel_stop();
   s_label_client_id = session_queue_next_id();
+  s_label_weight_q = cur_ex()->weight_q;
   recorder_stage(cur_ex()->movement_id, s_cur_set, cur_timed(), s_workout.name,
-                 s_label_client_id);
+                 s_label_client_id, s_label_weight_q);
   s_label_pending = true;
   s_label_ex = s_cur_ex;
   s_label_set = s_cur_set;

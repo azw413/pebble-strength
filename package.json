@@ -42,6 +42,7 @@
       "CLIENT_ID",
       "WORK_SECS",
       "PERFORMED_AT",
+      "WEIGHT",
       "SQ_PULL",
       "SQ_ACK",
       "SYNC_BEGIN",

@@ -34,6 +34,7 @@ function postSession(p) {
     actual: p.ACTUAL,
     is_timed: !!p.TIMED,
     work_secs: p.WORK_SECS,
+    weight_kg: (p.WEIGHT || 0) / 4,
     workout_name: p.WORKOUT_NAME || '',
     performed_at: p.PERFORMED_AT
   });
@@ -194,6 +195,7 @@ function upload(meta, actual, bytes) {
     sample_count: meta.SAMPLE_COUNT,
     truncated: !!meta.TRUNCATED,
     client_set_id: meta.CLIENT_ID,
+    weight_kg: (meta.WEIGHT || 0) / 4,
     data: b64encode(bytes)
   });
   var xhr = new XMLHttpRequest();

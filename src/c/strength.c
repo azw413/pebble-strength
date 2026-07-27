@@ -80,6 +80,7 @@ static void flush_next_queued(void) {
   dict_write_uint8(iter, MESSAGE_KEY_TIMED, set.timed ? 1 : 0);
   dict_write_uint8(iter, MESSAGE_KEY_ACTUAL, set.actual);
   dict_write_uint16(iter, MESSAGE_KEY_WORK_SECS, set.work_secs);
+  dict_write_uint16(iter, MESSAGE_KEY_WEIGHT, set.weight_q);
   dict_write_uint32(iter, MESSAGE_KEY_PERFORMED_AT, set.performed_at);
   dict_write_cstring(iter, MESSAGE_KEY_WORKOUT_NAME, set.workout_name);
   app_message_outbox_send();

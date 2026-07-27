@@ -17,6 +17,7 @@ typedef struct {
   bool timed;
   uint8_t actual;          // reps, or hold seconds
   uint16_t work_secs;
+  uint16_t weight_q;       // programmed weight, 0.25 kg units (0 = bodyweight)
   char workout_name[25];
 } SqSet;
 
