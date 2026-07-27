@@ -41,7 +41,7 @@ static const CounterConfig COUNTER_CONFIGS[] = {
   {0, 4, 500, 3000, 40, 800, 150, 0},  // 33 Face Pull
   {0, 4, 500, 3000, 40, 900, 150, 0},  // 34 Ring Row
   {0, 4, 500, 3000, 40, 900, 150, 0},  // 35 Ring Support Hold
-  {0, 4, 500, 3000, 40, 900, 150, 0},  // 36 Pike Push-up
+  {0, 3, 500, 3000, 30, 900, 70, 700},  // 36 Pike Push-up
   {0, 4, 500, 3000, 40, 900, 150, 0},  // 37 Hollow-body Hold
   {0, 4, 500, 3000, 40, 1200, 150, 0},  // 38 Dead Bug
   {0, 4, 500, 3000, 40, 900, 150, 0},  // 39 Tuck Front Lever
