@@ -87,7 +87,13 @@ fn axis_mode(axis: &str) -> i32 {
 }
 
 pub fn seed_exercises(conn: &mut SqliteConnection) -> Result<(), String> {
-    let seed: SeedFile = serde_json::from_str(SEED_JSON).map_err(|e| e.to_string())?;
+    // Read the catalog at RUNTIME so tuning (edit exercises.json + restart) needs
+    // no recompile; fall back to the copy compiled in at build time (e.g. if the
+    // file isn't deployed alongside the binary). STRENGTH_EXERCISES overrides.
+    let path = std::env::var("STRENGTH_EXERCISES")
+        .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/../shared/exercises.json").to_string());
+    let json = std::fs::read_to_string(&path).unwrap_or_else(|_| SEED_JSON.to_string());
+    let seed: SeedFile = serde_json::from_str(&json).map_err(|e| e.to_string())?;
     for e in seed.exercises {
         diesel::insert_into(exercises::table)
             .values((
