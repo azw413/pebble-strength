@@ -67,11 +67,11 @@
         "axis": "x",
         "lp_ms": 500,
         "hp_ms": 3000,
-        "thr_pct": 30,
+        "thr_pct": 25,
         "min_rep_ms": 900,
-        "min_amp": 60,
+        "min_amp": 55,
         "warmup_ms": 700,
-        "confidence": 0.5
+        "confidence": 0.8
       }
     },
     {
@@ -661,11 +661,11 @@
         "axis": "y",
         "lp_ms": 500,
         "hp_ms": 3000,
-        "thr_pct": 30,
-        "min_rep_ms": 900,
-        "min_amp": 60,
+        "thr_pct": 25,
+        "min_rep_ms": 1000,
+        "min_amp": 70,
         "warmup_ms": 700,
-        "confidence": 0.6
+        "confidence": 0.7
       }
     },
     {
@@ -707,11 +707,11 @@
         "axis": "z",
         "lp_ms": 500,
         "hp_ms": 3000,
-        "thr_pct": 30,
+        "thr_pct": 25,
         "min_rep_ms": 900,
-        "min_amp": 70,
+        "min_amp": 55,
         "warmup_ms": 700,
-        "confidence": 0.4
+        "confidence": 0.6
       }
     },
     {

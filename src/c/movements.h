@@ -44,7 +44,7 @@ static const MovementInfo MOVEMENTS[] = {
   {"L-sit", 900, 5, 1},  // 31
   {"Russian Twist", 600, 5, 0},  // 32
   {"Face Pull", 800, 5, 0},  // 33
-  {"Ring Row", 900, 5, 0},  // 34
+  {"Ring Row", 1000, 5, 0},  // 34
   {"Ring Support Hold", 900, 5, 1},  // 35
   {"Pike Push-up", 900, 5, 0},  // 36
   {"Hollow-body Hold", 900, 5, 1},  // 37
