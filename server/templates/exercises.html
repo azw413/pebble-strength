@@ -194,13 +194,17 @@ on-watch rep detection is ready.</p>
     <input id="ex-search" type="search" placeholder="Search exercises…" autocomplete="off" spellcheck="false">
     <div class="chips" id="ex-chips">
       <button class="chip active" data-cat="all">All <span>{{ total }}</span></button>
+      {% if mine > 0 %}
+      <button class="chip chip-mine" data-cat="mine">Mine <span>{{ mine }}</span></button>
+      {% endif %}
       {% for c in cats %}
       <button class="chip" data-cat="{{ c.key }}">{{ c.label }} <span>{{ c.count }}</span></button>
       {% endfor %}
     </div>
     <div class="ex-list" id="ex-list" role="listbox" aria-label="Exercises">
       {% for e in rows %}
-      <button class="ex-item" role="option" data-id="{{ e.id }}" data-cat="{{ e.category }}" data-name="{{ e.name }}">
+      <button class="ex-item" role="option" data-id="{{ e.id }}" data-cat="{{ e.category }}" data-name="{{ e.name }}"
+              data-mine="{% if e.custom %}1{% else %}0{% endif %}">
         <span class="ei-main">
           <span class="ei-name">{{ e.name }}</span>
           <span class="ei-sub">{{ e.body_area }} · {{ e.equipment }}</span>
@@ -267,6 +271,8 @@ on-watch rep detection is ready.</p>
   .chip span { opacity: 0.6; font-size: 0.78rem; }
   .chip:hover { color: var(--ink); }
   .chip.active { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .chip-mine { color: #6741d9; border-color: #d9cffa; }
+  .chip-mine.active { background: #6741d9; color: #fff; border-color: #6741d9; }
 
   /* List */
   .ex-list { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -427,7 +433,8 @@ on-watch rep detection is ready.</p>
   function applyFilter() {
     var q = search.value.trim().toLowerCase(), shown = 0;
     items.forEach(function (it) {
-      var okCat = cat === 'all' || it.dataset.cat === cat;
+      // "mine" filters by ownership rather than movement pattern
+      var okCat = cat === 'all' || (cat === 'mine' ? it.dataset.mine === '1' : it.dataset.cat === cat);
       var okName = !q || it.dataset.name.toLowerCase().indexOf(q) !== -1;
       var vis = okCat && okName;
       it.style.display = vis ? '' : 'none';

@@ -6,6 +6,12 @@
 //! allocated a `watch_movement_id` from a reserved high range, so the two
 //! allocators can never collide.
 //!
+//! That range is allocated *per user*: built-ins are globally unique (they must
+//! match the watch's compiled table), but two users can each hold id 128 for
+//! different movements, because a watch only ever receives its own owner's
+//! workouts. Everything that maps an id back to an exercise must therefore
+//! scope by owner — see `device.rs` on the upload path.
+//!
 //! The watch tolerates an id it has no entry for: `counter_config_default()`
 //! falls back to Custom(0) and `movement_name()` renders "Unknown". Names for
 //! custom movements need the string pool of SPEC §4.2/§4.4 (`customNameIdx`),
@@ -16,10 +22,11 @@ use diesel::prelude::*;
 
 use crate::error::AppError;
 use crate::models::Exercise;
-use crate::schema::{counter_configs, exercises, workout_exercises};
+use crate::schema::{exercises, workout_exercises};
 
 /// Built-in movements live below this; user-created ones from here up. The
-/// packed format carries the id as a u8 (SPEC §4.2), so 128..=255 is the pool.
+/// packed format carries the id as a u8 (SPEC §4.2), so 128..=255 is the pool —
+/// and every user gets the whole pool to themselves.
 pub const CUSTOM_MOVEMENT_BASE: i32 = 128;
 pub const MAX_MOVEMENT_ID: i32 = 255;
 
@@ -213,20 +220,31 @@ pub fn validate(form: &ExerciseForm) -> Result<Validated, String> {
     })
 }
 
-/// Next free id in the custom range. Ids are never reused — a deleted movement's
-/// id stays retired, so old packed workouts and recordings can't be misread.
-fn next_movement_id(conn: &mut SqliteConnection) -> Result<i32, AppError> {
-    let highest: Option<i32> = exercises::table
+/// Lowest free id in this user's custom range.
+///
+/// The range is per-user, so everyone gets all 128 slots — a global sequence
+/// would let one account exhaust a pool the rest share, and since custom
+/// exercises are invisible to other users, running out would look inexplicable.
+///
+/// Deleting frees the id for reuse. A watch holding a stale packed workout that
+/// still references a reused id would name the wrong movement, but only until
+/// its next sync: deletion is refused while any saved workout references the
+/// exercise, and logged history keeps its own copy of the name.
+fn next_movement_id(conn: &mut SqliteConnection, user_id: i32) -> Result<i32, AppError> {
+    let used: Vec<i32> = exercises::table
+        .filter(exercises::owner_user_id.eq(user_id))
         .filter(exercises::watch_movement_id.ge(CUSTOM_MOVEMENT_BASE))
-        .select(diesel::dsl::max(exercises::watch_movement_id))
-        .first(conn)?;
-    let next = highest.map_or(CUSTOM_MOVEMENT_BASE, |m| m + 1);
-    if next > MAX_MOVEMENT_ID {
-        return Err(AppError::BadRequest(
-            "no movement ids left — the packed format allows 128 custom exercises".into(),
-        ));
-    }
-    Ok(next)
+        .select(exercises::watch_movement_id)
+        .load(conn)?;
+    let used: std::collections::HashSet<i32> = used.into_iter().collect();
+    (CUSTOM_MOVEMENT_BASE..=MAX_MOVEMENT_ID)
+        .find(|id| !used.contains(id))
+        .ok_or_else(|| {
+            AppError::BadRequest(format!(
+                "you've used all {} custom exercise slots — delete one to free an id",
+                MAX_MOVEMENT_ID - CUSTOM_MOVEMENT_BASE + 1
+            ))
+        })
 }
 
 /// Reject a name that already exists in the user's view of the catalog, so the
@@ -262,7 +280,7 @@ pub fn create(
 ) -> Result<i32, AppError> {
     conn.transaction(|conn| {
         check_name_free(conn, user_id, &v.name, None)?;
-        let movement_id = next_movement_id(conn)?;
+        let movement_id = next_movement_id(conn, user_id)?;
         diesel::insert_into(exercises::table)
             .values((
                 exercises::watch_movement_id.eq(movement_id),
@@ -281,29 +299,38 @@ pub fn create(
                 exercises::owner_user_id.eq(user_id),
             ))
             .execute(conn)?;
-
-        // Baseline counter config, mirroring seed.rs. confidence stays 0.0, so
-        // /api/device/counters won't ship it — the watch counts a custom
-        // movement with its compiled-in Custom(0) profile until we tune one.
-        diesel::insert_into(counter_configs::table)
-            .values((
-                counter_configs::watch_movement_id.eq(movement_id),
-                counter_configs::version.eq(1),
-                counter_configs::active.eq(true),
-                counter_configs::kind.eq(0),
-                counter_configs::axis_mode.eq(0),
-                counter_configs::lp_ms.eq(500),
-                counter_configs::hp_ms.eq(3000),
-                counter_configs::thr_pct.eq(40),
-                counter_configs::min_rep_ms.eq(900),
-                counter_configs::min_amp.eq(150),
-                counter_configs::warmup_ms.eq(0),
-                counter_configs::confidence.eq(0.0f32),
-                counter_configs::enabled.eq(!v.default_timed),
-            ))
-            .execute(conn)?;
+        // No counter_configs row: that table is keyed by watch_movement_id with
+        // no owner, and custom ids now repeat across users. Nothing is lost —
+        // /api/device/counters only ships configs with confidence > 0, so an
+        // untuned custom movement always fell back to the watch's compiled-in
+        // Custom(0) profile anyway. Tuning one will need an owner column there.
         Ok(movement_id)
     })
+}
+
+/// Resolve a movement id coming off a watch back to an exercise name.
+///
+/// Must always be owner-scoped: custom ids repeat across users, so an unscoped
+/// lookup could name *another* user's movement. Built-ins (owner NULL) and this
+/// user's own rows can't collide, since the two occupy disjoint id ranges.
+/// Returns an empty string for an id we don't know, matching the previous
+/// behaviour of these call sites.
+pub fn movement_name(
+    conn: &mut SqliteConnection,
+    user_id: i32,
+    movement_id: i32,
+) -> Result<String, AppError> {
+    Ok(exercises::table
+        .filter(exercises::watch_movement_id.eq(movement_id))
+        .filter(
+            exercises::owner_user_id
+                .is_null()
+                .or(exercises::owner_user_id.eq(user_id)),
+        )
+        .select(exercises::name)
+        .first(conn)
+        .optional()?
+        .unwrap_or_default())
 }
 
 /// Load a custom exercise the user owns, or 404. Built-ins are never editable.
@@ -323,7 +350,7 @@ pub fn update(
     v: &Validated,
 ) -> Result<(), AppError> {
     conn.transaction(|conn| {
-        let ex = owned(conn, user_id, id)?;
+        owned(conn, user_id, id)?;
         check_name_free(conn, user_id, &v.name, Some(id))?;
         diesel::update(exercises::table.find(id))
             .set((
@@ -340,13 +367,6 @@ pub fn update(
                 exercises::load_factor.eq(v.load_factor),
             ))
             .execute(conn)?;
-        // A hold has no rep counter to run; keep that in step with the edit.
-        diesel::update(
-            counter_configs::table
-                .filter(counter_configs::watch_movement_id.eq(ex.watch_movement_id)),
-        )
-        .set(counter_configs::enabled.eq(!v.default_timed))
-        .execute(conn)?;
         Ok(())
     })
 }
@@ -366,11 +386,7 @@ pub fn delete(conn: &mut SqliteConnection, user_id: i32, id: i32) -> Result<(), 
                 ex.name
             )));
         }
-        diesel::delete(
-            counter_configs::table
-                .filter(counter_configs::watch_movement_id.eq(ex.watch_movement_id)),
-        )
-        .execute(conn)?;
+        // The movement id returns to this user's free pool.
         diesel::delete(exercises::table.find(id)).execute(conn)?;
         Ok(())
     })
@@ -430,6 +446,13 @@ mod tests {
         let mut f = form("Weird Hold");
         f.load_factor = "2.0".to_string();
         assert!(validate(&f).unwrap_err().contains("between 0 and 1.5"));
+    }
+
+    #[test]
+    fn the_custom_pool_is_a_full_128_slots() {
+        assert_eq!(MAX_MOVEMENT_ID - CUSTOM_MOVEMENT_BASE + 1, 128);
+        // Every id in the pool must survive the u8 the packed format uses.
+        assert!(u8::try_from(MAX_MOVEMENT_ID).is_ok());
     }
 
     #[test]

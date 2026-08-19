@@ -29,11 +29,12 @@ pebble build && pebble install --emulator basalt
 Two routes, and which one you want depends on the watch:
 
 - **Website → Exercises → "Add an exercise"** adds a private movement live, no
-  rebuild. It gets a `watch_movement_id` from the reserved 128–255 range and
-  works everywhere on the server (builder, packing, session history). The watch
-  shows it as `Unknown` and counts it with the generic Custom profile, because
-  its name table is compiled in — custom names need the string pool of
-  SPEC §4.2 (`customNameIdx`), which isn't built yet.
+  rebuild. It gets a `watch_movement_id` from the reserved 128–255 range —
+  allocated per user, so everyone has all 128 slots, and deleting frees one for
+  reuse. It works everywhere on the server (builder, packing, session history).
+  The watch shows it as `Unknown` and counts it with the generic Custom
+  profile, because its name table is compiled in — custom names need the string
+  pool of SPEC §4.2 (`customNameIdx`), which isn't built yet.
 - **`shared/exercises.json`** is for movements that should ship to everyone with
   a proper on-watch name and a tuned rep-counting profile. Ids there must stay
   below 128; the server refuses to boot otherwise. Re-run `gen_movements.py`

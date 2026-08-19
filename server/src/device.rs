@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use crate::auth::hash_token;
 use crate::error::AppError;
 use crate::models::Device;
-use crate::schema::{devices, exercises, recordings, users};
+use crate::schema::{devices, recordings, users};
 use crate::{db, pack, sessions, workouts as wk, AppState};
 
 fn bearer_token(headers: &HeaderMap) -> Result<String, AppError> {
@@ -185,12 +185,7 @@ pub async fn upload_recording(
     let dev_fallback = state.cfg.dev_login;
     let id = db::run(&state.pool, move |conn| {
         let user_id = device_user(conn, token, dev_fallback)?;
-        let exercise_name: String = exercises::table
-            .filter(exercises::watch_movement_id.eq(up.movement_id))
-            .select(exercises::name)
-            .first(conn)
-            .optional()?
-            .unwrap_or_default();
+        let exercise_name = crate::catalog::movement_name(conn, user_id, up.movement_id)?;
         let id = diesel::insert_into(recordings::table)
             .values((
                 recordings::user_id.eq(user_id),
@@ -265,12 +260,7 @@ pub async fn sessions(
     let dev_fallback = state.cfg.dev_login;
     db::run(&state.pool, move |conn| {
         let user_id = device_user(conn, token, dev_fallback)?;
-        let exercise_name: String = exercises::table
-            .filter(exercises::watch_movement_id.eq(up.movement_id))
-            .select(exercises::name)
-            .first(conn)
-            .optional()?
-            .unwrap_or_default();
+        let exercise_name = crate::catalog::movement_name(conn, user_id, up.movement_id)?;
         let performed_at = chrono::DateTime::from_timestamp(up.performed_at, 0)
             .map(|dt| dt.naive_utc())
             .unwrap_or_else(|| Utc::now().naive_utc());

@@ -965,6 +965,7 @@ pub struct CatChip {
 struct ExercisesTemplate {
     rows: Vec<ExerciseRow>,
     cats: Vec<CatChip>,
+    mine: usize, // 0 hides the "Mine" chip
     total: usize,
     exercises_json: String,
     // Vocabulary for the "new exercise" form. Keeping these server-side means
@@ -1079,11 +1080,15 @@ async fn render_exercises(
         })
         .collect();
 
+    // Only worth a chip once the user has something of their own to filter to.
+    let mine = rows.iter().filter(|r| r.custom).count();
+
     let exercises_json = script_json(&rows)?;
     Ok(Html(
         ExercisesTemplate {
             rows,
             cats,
+            mine,
             total,
             exercises_json,
             body_areas: catalog::BODY_AREAS.iter().map(|s| s.to_string()).collect(),
