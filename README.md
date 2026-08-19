@@ -24,6 +24,21 @@ python3 tools/gen_movements.py        # only after editing shared/exercises.json
 pebble build && pebble install --emulator basalt
 ```
 
+### Adding exercises
+
+Two routes, and which one you want depends on the watch:
+
+- **Website → Exercises → "Add an exercise"** adds a private movement live, no
+  rebuild. It gets a `watch_movement_id` from the reserved 128–255 range and
+  works everywhere on the server (builder, packing, session history). The watch
+  shows it as `Unknown` and counts it with the generic Custom profile, because
+  its name table is compiled in — custom names need the string pool of
+  SPEC §4.2 (`customNameIdx`), which isn't built yet.
+- **`shared/exercises.json`** is for movements that should ship to everyone with
+  a proper on-watch name and a tuned rep-counting profile. Ids there must stay
+  below 128; the server refuses to boot otherwise. Re-run `gen_movements.py`
+  and `gen_counters.py` after editing.
+
 ### Recording & rep-counter tuning (M2)
 
 Every set run on the watch records raw 25 Hz accelerometer data and uploads it

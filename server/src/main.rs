@@ -1,5 +1,6 @@
 mod api;
 mod auth;
+mod catalog;
 mod dashboard;
 mod db;
 mod device;
@@ -119,7 +120,9 @@ async fn main() {
         .route("/api/device/sessions", post(device::sessions))
         .route("/recordings", get(pages::recordings_page))
         .route("/recordings/{id}/csv", get(pages::recording_csv))
-        .route("/exercises", get(pages::exercises_page))
+        .route("/exercises", get(pages::exercises_page).post(pages::create_exercise))
+        .route("/exercises/{id}/edit", post(pages::update_exercise))
+        .route("/exercises/{id}/delete", post(pages::delete_exercise))
         .route("/sessions", get(pages::sessions_page))
         .route("/sessions/{id}", get(pages::session_detail_page))
         .route(

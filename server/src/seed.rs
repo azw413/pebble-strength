@@ -95,6 +95,17 @@ pub fn seed_exercises(conn: &mut SqliteConnection) -> Result<(), String> {
     let json = std::fs::read_to_string(&path).unwrap_or_else(|_| SEED_JSON.to_string());
     let seed: SeedFile = serde_json::from_str(&json).map_err(|e| e.to_string())?;
     for e in seed.exercises {
+        // The upsert below keys on watch_movement_id, so a seed id that strayed
+        // into the runtime range (catalog.rs) would silently overwrite one of a
+        // user's custom movements. Refuse to boot instead.
+        if e.id >= crate::catalog::CUSTOM_MOVEMENT_BASE {
+            return Err(format!(
+                "seed id {} for {} is in the custom range (>= {}) — built-ins must stay below it",
+                e.id,
+                e.name,
+                crate::catalog::CUSTOM_MOVEMENT_BASE
+            ));
+        }
         diesel::insert_into(exercises::table)
             .values((
                 exercises::watch_movement_id.eq(e.id),

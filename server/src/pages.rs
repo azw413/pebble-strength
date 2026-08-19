@@ -1,15 +1,36 @@
 use askama::Template;
 use axum::extract::{Path, State};
-use axum::response::{Html, Redirect};
+use axum::response::{Html, IntoResponse, Redirect};
 use axum::Form;
 use diesel::prelude::*;
 use serde::Deserialize;
 
 use crate::auth::{self, CurrentUser, OptionalUser};
+use crate::catalog::{self, cat_label, CATEGORIES as CAT_ORDER};
 use crate::error::AppError;
 use crate::models::{Device, Exercise, Workout};
 use crate::schema::{bodyweights, devices, exercises, workouts};
 use crate::{db, pack, workouts as wk, AppState};
+
+/// The catalog as one user sees it: every built-in, plus that user's own
+/// custom movements. Applied anywhere a user picks or browses exercises.
+type VisibleFilter = Box<
+    dyn diesel::BoxableExpression<
+        exercises::table,
+        diesel::sqlite::Sqlite,
+        // Nullable because owner_user_id is — `col.eq(x)` on a nullable column
+        // yields Nullable<Bool>, which `.filter()` accepts.
+        SqlType = diesel::sql_types::Nullable<diesel::sql_types::Bool>,
+    >,
+>;
+
+fn visible_to(user_id: i32) -> VisibleFilter {
+    Box::new(
+        exercises::owner_user_id
+            .is_null()
+            .or(exercises::owner_user_id.eq(user_id)),
+    )
+}
 
 /// serde_json → string safe to inline inside a <script> block.
 fn script_json<T: serde::Serialize>(value: &T) -> Result<String, AppError> {
@@ -249,10 +270,11 @@ struct BuilderTemplate {
 
 pub async fn builder_new(
     State(state): State<AppState>,
-    CurrentUser(_user): CurrentUser,
+    CurrentUser(user): CurrentUser,
 ) -> Result<Html<String>, AppError> {
-    let exs = db::run(&state.pool, |conn| {
+    let exs = db::run(&state.pool, move |conn| {
         Ok(exercises::table
+            .filter(visible_to(user.id))
             .order((exercises::body_area.asc(), exercises::name.asc()))
             .load::<Exercise>(conn)?)
     })
@@ -281,6 +303,7 @@ pub async fn builder_edit(
         let slot = wk::slot_map(conn, user.id)?.get(&w.id).copied();
         let input = wk::to_input(&rows, &w, slot);
         let exs = exercises::table
+            .filter(visible_to(user.id))
             .order((exercises::body_area.asc(), exercises::name.asc()))
             .load::<Exercise>(conn)?;
         Ok((exs, input))
@@ -909,27 +932,10 @@ pub async fn promo_gif() -> axum::response::Response {
 
 // ---- Exercise catalog ----
 
-// Movement patterns in the order the filter chips appear.
-const CAT_ORDER: [(&str, &str); 6] = [
-    ("push", "Push"),
-    ("pull", "Pull"),
-    ("hinge", "Hinge"),
-    ("squat", "Squat"),
-    ("core", "Core"),
-    ("other", "Other"),
-];
-
-fn cat_label(key: &str) -> String {
-    CAT_ORDER
-        .iter()
-        .find(|(k, _)| *k == key)
-        .map(|(_, l)| l.to_string())
-        .unwrap_or_else(|| key.to_string())
-}
-
 #[derive(serde::Serialize)]
 pub struct ExerciseRow {
     pub id: i32,                // watch_movement_id, keys the muscle map + detail
+    pub row_id: i32,            // exercises.id — what the edit/delete forms post to
     pub name: String,
     pub category: String,       // lowercase key, for data-cat + css class
     pub category_label: String, // "Push"
@@ -940,7 +946,10 @@ pub struct ExerciseRow {
     pub muscles: String,        // joined, for the list line
     pub unilateral: bool,
     pub loadable: bool,
+    pub default_timed: bool,
+    pub description: String,
     pub bw_load: String,        // "" when no bodyweight load factor
+    pub custom: bool,           // user-created -> editable, badged in the list
     pub rep: String,            // "ready" | "soon" | "hold"
     pub rep_label: String,      // "Rep detection · 90%" / "soon" / "Timed hold"
 }
@@ -958,17 +967,33 @@ struct ExercisesTemplate {
     cats: Vec<CatChip>,
     total: usize,
     exercises_json: String,
+    // Vocabulary for the "new exercise" form. Keeping these server-side means
+    // the form can only ever offer values the catalog and body map understand.
+    body_areas: Vec<String>,
+    equipment: Vec<String>,
+    muscles: Vec<String>,
+    categories: Vec<CatChip>,
+    error: Option<String>,
 }
 
 pub async fn exercises_page(
     State(state): State<AppState>,
-    CurrentUser(_user): CurrentUser,
+    user: CurrentUser,
+) -> Result<Html<String>, AppError> {
+    render_exercises(&state, user.0.id, None).await
+}
+
+async fn render_exercises(
+    state: &AppState,
+    user_id: i32,
+    error: Option<String>,
 ) -> Result<Html<String>, AppError> {
     use crate::schema::counter_configs;
     use std::collections::HashMap;
 
-    let (exs, cfgs) = db::run(&state.pool, |conn| {
+    let (exs, cfgs) = db::run(&state.pool, move |conn| {
         let exs = exercises::table
+            .filter(visible_to(user_id))
             .order((exercises::category.asc(), exercises::name.asc()))
             .load::<Exercise>(conn)?;
         // The active counter config per movement -> (enabled, confidence).
@@ -1018,6 +1043,7 @@ pub async fn exercises_page(
             };
             ExerciseRow {
                 id: e.watch_movement_id,
+                row_id: e.id,
                 category_label: cat_label(&e.category),
                 name: e.name,
                 category: e.category,
@@ -1028,7 +1054,10 @@ pub async fn exercises_page(
                 muscles,
                 unilateral: e.unilateral,
                 loadable: e.loadable,
+                default_timed: e.default_timed,
+                description: e.description,
                 bw_load,
+                custom: e.owner_user_id.is_some(),
                 rep,
                 rep_label,
             }
@@ -1051,5 +1080,74 @@ pub async fn exercises_page(
         .collect();
 
     let exercises_json = script_json(&rows)?;
-    Ok(Html(ExercisesTemplate { rows, cats, total, exercises_json }.render()?))
+    Ok(Html(
+        ExercisesTemplate {
+            rows,
+            cats,
+            total,
+            exercises_json,
+            body_areas: catalog::BODY_AREAS.iter().map(|s| s.to_string()).collect(),
+            equipment: catalog::EQUIPMENT.iter().map(|s| s.to_string()).collect(),
+            muscles: catalog::MUSCLES.iter().map(|s| s.to_string()).collect(),
+            categories: CAT_ORDER
+                .iter()
+                .map(|(k, l)| CatChip { key: k.to_string(), label: l.to_string(), count: 0 })
+                .collect(),
+            error,
+        }
+        .render()?,
+    ))
+}
+
+/// Add a movement the seed file doesn't have. It gets a `watch_movement_id`
+/// from the reserved custom range, so it packs and uploads like any other.
+pub async fn create_exercise(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Form(form): Form<catalog::ExerciseForm>,
+) -> Result<axum::response::Response, AppError> {
+    let v = match catalog::validate(&form) {
+        Ok(v) => v,
+        Err(msg) => return Ok(render_exercises(&state, user.id, Some(msg)).await?.into_response()),
+    };
+    match db::run(&state.pool, move |conn| catalog::create(conn, user.id, &v)).await {
+        Ok(_) => Ok(Redirect::to("/exercises").into_response()),
+        Err(AppError::BadRequest(msg)) => {
+            Ok(render_exercises(&state, user.id, Some(msg)).await?.into_response())
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub async fn update_exercise(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+    Form(form): Form<catalog::ExerciseForm>,
+) -> Result<axum::response::Response, AppError> {
+    let v = match catalog::validate(&form) {
+        Ok(v) => v,
+        Err(msg) => return Ok(render_exercises(&state, user.id, Some(msg)).await?.into_response()),
+    };
+    match db::run(&state.pool, move |conn| catalog::update(conn, user.id, id, &v)).await {
+        Ok(()) => Ok(Redirect::to("/exercises").into_response()),
+        Err(AppError::BadRequest(msg)) => {
+            Ok(render_exercises(&state, user.id, Some(msg)).await?.into_response())
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub async fn delete_exercise(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(id): Path<i32>,
+) -> Result<axum::response::Response, AppError> {
+    match db::run(&state.pool, move |conn| catalog::delete(conn, user.id, id)).await {
+        Ok(()) => Ok(Redirect::to("/exercises").into_response()),
+        Err(AppError::BadRequest(msg)) => {
+            Ok(render_exercises(&state, user.id, Some(msg)).await?.into_response())
+        }
+        Err(e) => Err(e),
+    }
 }
