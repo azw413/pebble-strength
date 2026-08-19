@@ -95,41 +95,58 @@ pub fn seed_exercises(conn: &mut SqliteConnection) -> Result<(), String> {
     let json = std::fs::read_to_string(&path).unwrap_or_else(|_| SEED_JSON.to_string());
     let seed: SeedFile = serde_json::from_str(&json).map_err(|e| e.to_string())?;
     for e in seed.exercises {
-        diesel::insert_into(exercises::table)
-            .values((
-                exercises::watch_movement_id.eq(e.id),
-                exercises::name.eq(&e.name),
-                exercises::body_area.eq(&e.body_area),
-                exercises::primary_muscles.eq(e.primary_muscles.join(", ")),
-                exercises::secondary_muscles.eq(e.secondary_muscles.join(", ")),
-                exercises::default_timed.eq(e.default_timed),
-                exercises::category.eq(&e.category),
-                exercises::equipment.eq(&e.equipment),
-                exercises::loadable.eq(e.loadable),
-                exercises::unilateral.eq(e.unilateral),
-                exercises::description.eq(&e.description),
-                exercises::is_builtin.eq(true),
-                exercises::load_factor.eq(e.load_factor),
-            ))
-            .on_conflict(exercises::watch_movement_id)
-            .do_update()
-            // Refresh the catalog facts on every boot; leave prescription defaults
-            // (min/max/default_reps, rest) and owner untouched so manual edits stick.
-            .set((
-                exercises::name.eq(&e.name),
-                exercises::body_area.eq(&e.body_area),
-                exercises::primary_muscles.eq(e.primary_muscles.join(", ")),
-                exercises::secondary_muscles.eq(e.secondary_muscles.join(", ")),
-                exercises::default_timed.eq(e.default_timed),
-                exercises::category.eq(&e.category),
-                exercises::equipment.eq(&e.equipment),
-                exercises::loadable.eq(e.loadable),
-                exercises::unilateral.eq(e.unilateral),
-                exercises::description.eq(&e.description),
-                exercises::load_factor.eq(e.load_factor),
-            ))
-            .execute(conn)
+        // A seed id that strayed into the runtime range (catalog.rs) would
+        // collide with users' custom movements. Refuse to boot instead.
+        if e.id >= crate::catalog::CUSTOM_MOVEMENT_BASE {
+            return Err(format!(
+                "seed id {} for {} is in the custom range (>= {}) — built-ins must stay below it",
+                e.id,
+                e.name,
+                crate::catalog::CUSTOM_MOVEMENT_BASE
+            ));
+        }
+        // Match on the built-in row only. ON CONFLICT can't be used here: the
+        // unique index over watch_movement_id is partial (built-ins only, since
+        // custom rows reuse these ids per user), and a conflict target has to
+        // name the index's predicate — which diesel can't express for SQLite.
+        // A lookup per row is nothing at ~50 rows once per boot.
+        let existing: Option<i32> = exercises::table
+            .filter(exercises::watch_movement_id.eq(e.id))
+            .filter(exercises::owner_user_id.is_null())
+            .select(exercises::id)
+            .first(conn)
+            .optional()
             .map_err(|err| format!("seeding {}: {err}", e.name))?;
+
+        // Catalog facts are refreshed on every boot; prescription defaults
+        // (min/max/default_reps, rest) are left alone so manual edits stick.
+        let facts = (
+            exercises::name.eq(&e.name),
+            exercises::body_area.eq(&e.body_area),
+            exercises::primary_muscles.eq(e.primary_muscles.join(", ")),
+            exercises::secondary_muscles.eq(e.secondary_muscles.join(", ")),
+            exercises::default_timed.eq(e.default_timed),
+            exercises::category.eq(&e.category),
+            exercises::equipment.eq(&e.equipment),
+            exercises::loadable.eq(e.loadable),
+            exercises::unilateral.eq(e.unilateral),
+            exercises::description.eq(&e.description),
+            exercises::load_factor.eq(e.load_factor),
+        );
+
+        match existing {
+            Some(row_id) => diesel::update(exercises::table.find(row_id))
+                .set(facts)
+                .execute(conn),
+            None => diesel::insert_into(exercises::table)
+                .values((
+                    exercises::watch_movement_id.eq(e.id),
+                    exercises::is_builtin.eq(true),
+                    facts,
+                ))
+                .execute(conn),
+        }
+        .map_err(|err| format!("seeding {}: {err}", e.name))?;
 
         // Baseline (v1) parametric counter config. shared/exercises.json is the
         // source of truth, so refresh it on every boot — this is how a retuned

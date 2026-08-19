@@ -17,6 +17,83 @@
 <p class="muted" style="margin-top:-0.3rem">Pick a movement to see the muscles it works. The green mark shows where
 on-watch rep detection is ready.</p>
 
+{% match error %}
+{% when Some with (msg) %}
+<p class="ex-err" role="alert">{{ msg }}</p>
+{% when None %}
+{% endmatch %}
+
+<details class="card newex" id="newex">
+  <summary id="newex-summary">+ Add an exercise</summary>
+  <form method="post" action="/exercises" id="exform">
+    <div class="nx-grid">
+      <label class="nx-f nx-wide">Name
+        <input type="text" name="name" id="f_name" maxlength="24" required
+               placeholder="e.g. Dumbbell Pullover">
+        <span class="nx-hint">Up to 24 characters — the watch's name field.</span>
+      </label>
+
+      <label class="nx-f">Body area
+        <select name="body_area" id="f_body_area">
+          {% for a in body_areas %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
+        </select>
+      </label>
+
+      <label class="nx-f">Movement pattern
+        <select name="category" id="f_category">
+          {% for c in categories %}<option value="{{ c.key }}">{{ c.label }}</option>{% endfor %}
+        </select>
+      </label>
+
+      <label class="nx-f">Equipment
+        <select name="equipment" id="f_equipment">
+          {% for q in equipment %}<option value="{{ q }}">{{ q }}</option>{% endfor %}
+        </select>
+      </label>
+
+      <label class="nx-f">Bodyweight load
+        <input type="number" name="load_factor" id="f_load_factor" min="0" max="1.5" step="0.01"
+               placeholder="0">
+        <span class="nx-hint">Share of your bodyweight moved (push-up ≈ 0.64). Leave blank for weighted lifts.</span>
+      </label>
+
+      <div class="nx-f nx-wide">
+        <span class="nx-lbl">Primary movers</span>
+        <div class="mpick" data-target="f_primary">
+          {% for m in muscles %}<button type="button" class="mchip" data-m="{{ m }}">{{ m }}</button>{% endfor %}
+        </div>
+        <input type="hidden" name="primary_muscles" id="f_primary">
+      </div>
+
+      <div class="nx-f nx-wide">
+        <span class="nx-lbl">Secondary / stabilisers</span>
+        <div class="mpick sec" data-target="f_secondary">
+          {% for m in muscles %}<button type="button" class="mchip" data-m="{{ m }}">{{ m }}</button>{% endfor %}
+        </div>
+        <input type="hidden" name="secondary_muscles" id="f_secondary">
+      </div>
+
+      <label class="nx-f nx-wide">Notes
+        <input type="text" name="description" id="f_description" maxlength="500"
+               placeholder="Form cue (optional)">
+      </label>
+
+      <div class="nx-f nx-wide nx-checks">
+        <label><input type="checkbox" name="loadable" id="f_loadable"> Can add weight</label>
+        <label><input type="checkbox" name="unilateral" id="f_unilateral"> One side at a time</label>
+        <label><input type="checkbox" name="default_timed" id="f_default_timed"> Timed hold, not reps</label>
+      </div>
+    </div>
+
+    <div class="nx-actions">
+      <button type="submit" id="exform-submit">Add exercise</button>
+      <button type="button" class="small" id="exform-cancel" hidden>Cancel edit</button>
+      <span class="nx-hint" id="exform-note">Custom movements are yours alone — they show up in the
+        builder straight away and log like any other exercise.</span>
+    </div>
+  </form>
+</details>
+
 <div class="ex-wrap">
   <!-- Sticky map + detail -->
   <aside class="ex-aside">
@@ -117,18 +194,23 @@ on-watch rep detection is ready.</p>
     <input id="ex-search" type="search" placeholder="Search exercises…" autocomplete="off" spellcheck="false">
     <div class="chips" id="ex-chips">
       <button class="chip active" data-cat="all">All <span>{{ total }}</span></button>
+      {% if mine > 0 %}
+      <button class="chip chip-mine" data-cat="mine">Mine <span>{{ mine }}</span></button>
+      {% endif %}
       {% for c in cats %}
       <button class="chip" data-cat="{{ c.key }}">{{ c.label }} <span>{{ c.count }}</span></button>
       {% endfor %}
     </div>
     <div class="ex-list" id="ex-list" role="listbox" aria-label="Exercises">
       {% for e in rows %}
-      <button class="ex-item" role="option" data-id="{{ e.id }}" data-cat="{{ e.category }}" data-name="{{ e.name }}">
+      <button class="ex-item" role="option" data-id="{{ e.id }}" data-cat="{{ e.category }}" data-name="{{ e.name }}"
+              data-mine="{% if e.custom %}1{% else %}0{% endif %}">
         <span class="ei-main">
           <span class="ei-name">{{ e.name }}</span>
           <span class="ei-sub">{{ e.body_area }} · {{ e.equipment }}</span>
         </span>
         <span class="ei-tags">
+          {% if e.custom %}<span class="rep-pill mine" title="Your custom exercise">mine</span>{% endif %}
           <span class="badge cat-{{ e.category }}">{{ e.category_label }}</span>
           {% if e.rep == "ready" %}<span class="rep-pill ready" title="Rep detection ready">● rep</span>
           {% else if e.rep == "hold" %}<span class="rep-pill hold" title="Timed hold">hold</span>
@@ -189,6 +271,8 @@ on-watch rep detection is ready.</p>
   .chip span { opacity: 0.6; font-size: 0.78rem; }
   .chip:hover { color: var(--ink); }
   .chip.active { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .chip-mine { color: #6741d9; border-color: #d9cffa; }
+  .chip-mine.active { background: #6741d9; color: #fff; border-color: #6741d9; }
 
   /* List */
   .ex-list { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -206,6 +290,42 @@ on-watch rep detection is ready.</p>
   .rep-pill.ready { background: #e7f5ea; color: #2f9e44; }
   .rep-pill.soon { background: var(--panel-2, #f1f2ec); color: var(--muted); }
   .rep-pill.hold { background: #e7f0f9; color: #1971c2; }
+  .rep-pill.mine { background: #f3ecff; color: #6741d9; }
+
+  /* Add / edit exercise */
+  .ex-err { margin: 0.8rem 0 0; padding: 0.6rem 0.8rem; border-radius: 10px;
+    background: #fdecea; color: #b02a37; border: 1px solid #f5c2c7; font-size: 0.9rem; }
+  .newex { margin-top: 1rem; padding: 0.8rem 1.1rem; }
+  .newex > summary { cursor: pointer; font-weight: 600; list-style: none; }
+  .newex > summary::-webkit-details-marker { display: none; }
+  .newex[open] > summary { margin-bottom: 0.9rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--line); }
+  .nx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem 0.9rem; }
+  @media (max-width: 760px) { .nx-grid { grid-template-columns: 1fr; } }
+  .nx-f { display: flex; flex-direction: column; gap: 0.28rem; font-size: 0.8rem; color: var(--muted); }
+  .nx-wide { grid-column: 1 / -1; }
+  .nx-lbl { font-size: 0.8rem; color: var(--muted); }
+  .nx-f input[type=text], .nx-f input[type=number], .nx-f select {
+    font: inherit; font-size: 0.95rem; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 0.45rem 0.6rem; }
+  .nx-f select { text-transform: capitalize; }
+  .nx-hint { font-size: 0.74rem; color: var(--muted); opacity: 0.85; }
+  .nx-checks { flex-direction: row; flex-wrap: wrap; gap: 1rem; font-size: 0.9rem; color: var(--ink); }
+  .nx-checks label { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .nx-actions { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin-top: 0.9rem; }
+  /* base.html gives buttons a display, which outranks the UA rule for [hidden] */
+  .nx-actions button[hidden] { display: none; }
+  .mpick { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .mchip { font: inherit; font-size: 0.78rem; cursor: pointer; text-transform: capitalize;
+    padding: 0.2rem 0.55rem; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--panel); color: var(--muted); transition: all .12s; }
+  .mchip:hover { color: var(--ink); }
+  .mchip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .mchip.on.sec { background: #e6871d; border-color: #e6871d; }
+
+  .dactions { display: flex; gap: 0.5rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--line); }
+  .dactions button { font: inherit; font-size: 0.85rem; cursor: pointer; padding: 0.3rem 0.7rem;
+    border-radius: 9px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  .dactions .danger { color: #b02a37; border-color: #f5c2c7; }
 
   .badge.cat-push, .badge.cat-pull, .badge.cat-hinge,
   .badge.cat-squat, .badge.cat-core, .badge.cat-other { color: #fff; }
@@ -252,21 +372,41 @@ on-watch rep detection is ready.</p>
     });
   }
 
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
   function detail(e) {
     function tags(list) {
       if (!list.length) return '<span class="dtag" style="opacity:.6">—</span>';
-      return list.map(function (m) { return '<span class="dtag">' + m + '</span>'; }).join('');
+      return list.map(function (m) { return '<span class="dtag">' + esc(m) + '</span>'; }).join('');
     }
     var meta = [e.body_area, e.equipment];
     if (e.unilateral) meta.push('per side');
     if (e.loadable) meta.push('weightable');
     if (e.bw_load) meta.push('bodyweight load ×' + e.bw_load);
+    // Only your own movements are editable; built-ins come from the seed file
+    // the watch is compiled against.
+    var actions = e.custom
+      ? '<div class="dactions">' +
+        '<button type="button" id="d-edit">Edit</button>' +
+        '<button type="button" class="danger" id="d-del">Delete</button></div>'
+      : '';
     document.getElementById('ex-detail').innerHTML =
-      '<div class="dn"><h2>' + e.name + '</h2><span class="badge cat-' + e.category + '">' + e.category_label + '</span></div>' +
+      '<div class="dn"><h2>' + esc(e.name) + '</h2><span class="badge cat-' + e.category + '">' + e.category_label + '</span>' +
+      (e.custom ? '<span class="rep-pill mine">mine</span>' : '') + '</div>' +
       '<div class="rep-line ' + e.rep + '">' + (e.rep === 'ready' ? '● ' : e.rep === 'hold' ? '' : '○ ') + e.rep_label + '</div>' +
       '<div class="dmeta">' + meta.join(' · ') + '</div>' +
+      (e.description ? '<p class="muted" style="font-size:0.85rem;margin:-0.4rem 0 0.8rem">' + esc(e.description) + '</p>' : '') +
       '<div class="dmrow"><div class="dlbl"><i style="background:var(--accent)"></i>Primary movers</div><div class="dtags">' + tags(e.primary) + '</div></div>' +
-      '<div class="dmrow"><div class="dlbl"><i style="background:#e6871d"></i>Secondary / stabilisers</div><div class="dtags">' + tags(e.secondary) + '</div></div>';
+      '<div class="dmrow"><div class="dlbl"><i style="background:#e6871d"></i>Secondary / stabilisers</div><div class="dtags">' + tags(e.secondary) + '</div></div>' +
+      actions;
+    if (e.custom) {
+      document.getElementById('d-edit').addEventListener('click', function () { editExercise(e); });
+      document.getElementById('d-del').addEventListener('click', function () { delExercise(e); });
+    }
   }
 
   function select(id) {
@@ -293,7 +433,8 @@ on-watch rep detection is ready.</p>
   function applyFilter() {
     var q = search.value.trim().toLowerCase(), shown = 0;
     items.forEach(function (it) {
-      var okCat = cat === 'all' || it.dataset.cat === cat;
+      // "mine" filters by ownership rather than movement pattern
+      var okCat = cat === 'all' || (cat === 'mine' ? it.dataset.mine === '1' : it.dataset.cat === cat);
       var okName = !q || it.dataset.name.toLowerCase().indexOf(q) !== -1;
       var vis = okCat && okName;
       it.style.display = vis ? '' : 'none';
@@ -308,6 +449,83 @@ on-watch rep detection is ready.</p>
     });
   });
   search.addEventListener('input', applyFilter);
+
+  // ---- Add / edit exercise form ----
+  var form = document.getElementById('exform');
+  var details = document.getElementById('newex');
+  var summary = document.getElementById('newex-summary');
+  var submit = document.getElementById('exform-submit');
+  var cancel = document.getElementById('exform-cancel');
+
+  // Muscle chip pickers write a comma-separated list into a hidden input; the
+  // server re-validates every token against the same vocabulary.
+  var picks = Array.prototype.slice.call(document.querySelectorAll('.mpick'));
+  picks.forEach(function (pick) {
+    var hidden = document.getElementById(pick.dataset.target);
+    function sync() {
+      hidden.value = Array.prototype.slice
+        .call(pick.querySelectorAll('.mchip.on'))
+        .map(function (c) { return c.dataset.m; })
+        .join(', ');
+    }
+    pick.addEventListener('click', function (ev) {
+      var chip = ev.target.closest('.mchip');
+      if (!chip) return;
+      chip.classList.toggle('on');
+      if (pick.classList.contains('sec')) chip.classList.toggle('sec', chip.classList.contains('on'));
+      sync();
+    });
+    pick.sync = sync;
+  });
+
+  function setPicks(pick, list) {
+    pick.querySelectorAll('.mchip').forEach(function (c) {
+      var on = list.indexOf(c.dataset.m) !== -1;
+      c.classList.toggle('on', on);
+      if (pick.classList.contains('sec')) c.classList.toggle('sec', on);
+    });
+    pick.sync();
+  }
+
+  function resetForm() {
+    form.reset();
+    form.action = '/exercises';
+    submit.textContent = 'Add exercise';
+    summary.textContent = '+ Add an exercise';
+    cancel.hidden = true;
+    picks.forEach(function (p) { setPicks(p, []); });
+  }
+
+  function editExercise(e) {
+    form.action = '/exercises/' + e.row_id + '/edit';
+    document.getElementById('f_name').value = e.name;
+    document.getElementById('f_body_area').value = e.body_area;
+    document.getElementById('f_category').value = e.category;
+    document.getElementById('f_equipment').value = e.equipment;
+    document.getElementById('f_load_factor').value = e.bw_load || '';
+    document.getElementById('f_description').value = e.description || '';
+    document.getElementById('f_loadable').checked = !!e.loadable;
+    document.getElementById('f_unilateral').checked = !!e.unilateral;
+    document.getElementById('f_default_timed').checked = !!e.default_timed;
+    setPicks(picks[0], e.primary);
+    setPicks(picks[1], e.secondary);
+    submit.textContent = 'Save changes';
+    summary.textContent = 'Editing: ' + e.name;
+    cancel.hidden = false;
+    details.open = true;
+    details.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function delExercise(e) {
+    if (!confirm('Delete "' + e.name + '"? Past sessions keep their logged name.')) return;
+    var f = document.createElement('form');
+    f.method = 'post';
+    f.action = '/exercises/' + e.row_id + '/delete';
+    document.body.appendChild(f);
+    f.submit();
+  }
+
+  cancel.addEventListener('click', resetForm);
 
   if (curId != null) select(curId);
 })();
