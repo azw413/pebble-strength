@@ -67,10 +67,10 @@
         "axis": "x",
         "lp_ms": 500,
         "hp_ms": 3000,
-        "thr_pct": 25,
+        "thr_pct": 18,
         "min_rep_ms": 900,
         "min_amp": 55,
-        "warmup_ms": 700,
+        "warmup_ms": 1800,
         "confidence": 0.8
       }
     },
