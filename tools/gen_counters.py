@@ -13,7 +13,7 @@ import json
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-AXIS = {"auto": 0, "x": 1, "y": 2, "z": 3, "mag": 4, "linear": 4}
+AXIS = {"auto": 0, "x": 1, "y": 2, "z": 3, "mag": 4, "linear": 4, "pca": 5}
 DEFAULTS = dict(axis="mag", lp_ms=500, hp_ms=3000, thr_pct=40,
                 min_rep_ms=900, min_amp=150, warmup_ms=0)
 

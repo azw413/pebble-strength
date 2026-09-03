@@ -15,7 +15,7 @@
 // down-up swings with a refractory gap; the threshold scales with a running
 // amplitude estimate so it adapts to how hard the athlete works.
 
-#define REP_SEL_MS 2500  // auto-axis: variance-accumulation window
+#define REP_SEL_MS 3500  // selection window for auto-axis / PCA direction lock
 
 // Fitted params for one movement. Matches the server `counter_configs` row;
 // on-device these arrive compiled-in (counters.h) or, later, downloaded.
@@ -43,6 +43,11 @@ typedef struct {
   int32_t lp_q8[4], base_q8[4];  // band-pass state for x, y, z, |linear|
   int32_t gx, gy, gz;            // gravity EMA (alpha 1/16) for the |linear| axis
   int64_t sq[3];                 // auto-axis variance accumulators
+  // PCA mode (axis_mode 5, rotation-invariant): covariance of the band-passed
+  // (x,y,z) over the selection window, then its principal eigenvector = the rep
+  // direction. Projecting onto it is invariant to how the watch is oriented.
+  int64_t cov[6];                // xx,yy,zz,xy,xz,yz (band-passed, in mG^2)
+  float pca_u[3];                // locked principal direction (unit vector)
   int32_t amp_est_q8;            // running swing-amplitude estimate
   bool in_low;                   // inside a down-swing, waiting for the rise
   int32_t trough_q8;             // deepest point of the current down-swing

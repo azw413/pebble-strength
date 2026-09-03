@@ -51,7 +51,7 @@ class CounterConfig:
     min_rep_ms: int = 900   # refractory gap between reps
     min_amp: float = 70.0   # noise floor (mG); threshold never dips below this
     warmup_ms: int = 700    # ignore this long at the start
-    sel_ms: int = 2500      # auto-axis: variance-accumulation window
+    sel_ms: int = 3500      # selection window (must match REP_SEL_MS in rep_counter.h)
 
 
 def _ema_alpha(tau_ms, rate):
@@ -85,10 +85,16 @@ def count_causal(xyz, cfg: CounterConfig, rate=RATE, trace=False):
         axis = 3  # provisional until the selection window closes
         axis_locked = False
 
+    pca = cfg.axis_mode == 5  # rotation-invariant principal-axis mode
+    if pca:
+        axis_locked = False
+
     # Running band-pass state per axis (so an auto pick has warm EMAs ready).
     lp = [ax[0] for ax in axes]
     base = [ax[0] for ax in axes]
     sq = [0.0, 0.0, 0.0, 0.0]  # variance accumulators over the selection window
+    cov = np.zeros((3, 3))     # PCA covariance of the band-passed (x,y,z)
+    u = None                   # locked principal direction
 
     count = 0
     state = "high"
@@ -101,6 +107,33 @@ def count_causal(xyz, cfg: CounterConfig, rate=RATE, trace=False):
         for k in range(4):
             lp[k] += a_lp * (axes[k][i] - lp[k])
             base[k] += a_hp * (lp[k] - base[k])
+
+        if pca:
+            if i < warm:
+                continue
+            o3 = np.array([lp[0] - base[0], lp[1] - base[1], lp[2] - base[2]])
+            if u is None:
+                cov += np.outer(o3, o3)
+                if i >= warm + sel:
+                    _, V = np.linalg.eigh(cov)
+                    u = V[:, -1]
+                    j = int(np.argmax(np.abs(u)))  # deterministic sign (matches C)
+                    if u[j] < 0:
+                        u = -u
+                continue
+            osc = float(np.dot(o3, u))
+            h = max(cfg.min_amp, cfg.thr_pct / 100.0 * amp_est)
+            if state == "high":
+                if osc < -h:
+                    state = "low"; trough = osc
+            else:
+                trough = min(trough, osc)
+                if osc > h:
+                    if i - last_rep >= min_gap:
+                        count += 1; last_rep = i; amp_est += 0.35 * (abs(trough) - amp_est); reps.append(i)
+                    state = "high"
+            continue
+
         if not axis_locked:
             for k in range(4):
                 o = lp[k] - base[k]

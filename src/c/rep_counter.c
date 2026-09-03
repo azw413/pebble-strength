@@ -1,5 +1,28 @@
 #include "rep_counter.h"
 #include <string.h>
+#include <math.h>
+
+// Principal eigenvector of the accumulated 3x3 covariance (power iteration).
+// Sign-normalised (largest component positive) so it's deterministic and matches
+// the Python reference. Runs once per set when the selection window closes.
+static void pca_solve(RepCounter *rc) {
+  float m00 = (float)rc->cov[0], m11 = (float)rc->cov[1], m22 = (float)rc->cov[2];
+  float m01 = (float)rc->cov[3], m02 = (float)rc->cov[4], m12 = (float)rc->cov[5];
+  float u0 = 1.0f, u1 = 1.0f, u2 = 1.0f;
+  for (int it = 0; it < 16; it++) {
+    float v0 = m00 * u0 + m01 * u1 + m02 * u2;
+    float v1 = m01 * u0 + m11 * u1 + m12 * u2;
+    float v2 = m02 * u0 + m12 * u1 + m22 * u2;
+    float nrm = sqrtf(v0 * v0 + v1 * v1 + v2 * v2);
+    if (nrm < 1e-6f) break;
+    u0 = v0 / nrm; u1 = v1 / nrm; u2 = v2 / nrm;
+  }
+  // Deterministic sign: make the largest-magnitude component positive.
+  float a0 = u0 < 0 ? -u0 : u0, a1 = u1 < 0 ? -u1 : u1, a2 = u2 < 0 ? -u2 : u2;
+  float dom = (a0 >= a1 && a0 >= a2) ? u0 : (a1 >= a2) ? u1 : u2;
+  if (dom < 0) { u0 = -u0; u1 = -u1; u2 = -u2; }
+  rc->pca_u[0] = u0; rc->pca_u[1] = u1; rc->pca_u[2] = u2;
+}
 
 static uint32_t isqrt32(uint32_t v) {
   uint32_t r = 0, b = 1u << 30;
@@ -86,24 +109,48 @@ bool rep_counter_feed(RepCounter *rc, int16_t x, int16_t y, int16_t z, uint32_t 
 
   uint32_t i = rc->n++;
 
-  // Auto axis: accumulate per-axis variance, then lock the strongest.
-  if (!rc->axis_locked) {
-    for (int k = 0; k < 3; k++) {
-      int32_t o = rc->lp_q8[k] - rc->base_q8[k];
-      rc->sq[k] += (int64_t)o * o;
+  // Band-passed rep signal (Q8) for x,y,z — used by auto-axis and PCA.
+  int32_t ox = rc->lp_q8[0] - rc->base_q8[0];
+  int32_t oy = rc->lp_q8[1] - rc->base_q8[1];
+  int32_t oz = rc->lp_q8[2] - rc->base_q8[2];
+
+  int32_t osc;
+  if (rc->axis_mode == 5) {
+    // Rotation-invariant PCA: over the selection window accumulate the
+    // covariance of (ox,oy,oz), then lock the principal direction (the rep
+    // direction). Projecting onto it is invariant to watch orientation.
+    if (i < rc->warmup_samples) return false;
+    if (!rc->axis_locked) {
+      int64_t mx = ox >> 8, my = oy >> 8, mz = oz >> 8;  // to mG
+      rc->cov[0] += mx * mx; rc->cov[1] += my * my; rc->cov[2] += mz * mz;
+      rc->cov[3] += mx * my; rc->cov[4] += mx * mz; rc->cov[5] += my * mz;
+      if (i >= rc->warmup_samples + rc->sel_samples) {
+        pca_solve(rc);
+        rc->axis_locked = true;
+      }
+      return false;
     }
-    if (i >= rc->sel_samples) {
-      uint8_t best = 0;
-      if (rc->sq[1] > rc->sq[best]) best = 1;
-      if (rc->sq[2] > rc->sq[best]) best = 2;
-      rc->axis = best;
-      rc->axis_locked = true;
+    float s = (float)(ox >> 8) * rc->pca_u[0] + (float)(oy >> 8) * rc->pca_u[1] +
+              (float)(oz >> 8) * rc->pca_u[2];
+    osc = (int32_t)(s * 256.0f);  // back to Q8 for the shared hysteresis
+  } else {
+    // Auto axis (mode 0): accumulate per-axis variance, then lock the strongest.
+    if (!rc->axis_locked) {
+      rc->sq[0] += (int64_t)ox * ox;
+      rc->sq[1] += (int64_t)oy * oy;
+      rc->sq[2] += (int64_t)oz * oz;
+      if (i >= rc->sel_samples) {
+        uint8_t best = 0;
+        if (rc->sq[1] > rc->sq[best]) best = 1;
+        if (rc->sq[2] > rc->sq[best]) best = 2;
+        rc->axis = best;
+        rc->axis_locked = true;
+      }
     }
+    if (i < rc->warmup_samples || !rc->axis_locked) return false;
+    osc = rc->lp_q8[rc->axis] - rc->base_q8[rc->axis];
   }
 
-  if (i < rc->warmup_samples || !rc->axis_locked) return false;
-
-  int32_t osc = rc->lp_q8[rc->axis] - rc->base_q8[rc->axis];
   int32_t h = rc->min_amp_q8;
   int32_t adj = (int32_t)(((int64_t)rc->amp_est_q8 * rc->thr_pct) / 100);
   if (adj > h) h = adj;

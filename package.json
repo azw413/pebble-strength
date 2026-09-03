@@ -1,8 +1,10 @@
 {
   "name": "strength",
   "author": "Andrew Whaley",
-  "version": "1.1.1",
-  "keywords": ["pebble-app"],
+  "version": "1.2.0",
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
@@ -10,7 +12,9 @@
     "uuid": "7d6a30ac-1c7d-4489-8341-83ec6a5336f3",
     "sdkVersion": "3",
     "enableMultiJS": true,
-    "capabilities": ["configurable"],
+    "capabilities": [
+      "configurable"
+    ],
     "targetPlatforms": [
       "basalt",
       "chalk",

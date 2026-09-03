@@ -82,7 +82,8 @@ fn axis_mode(axis: &str) -> i32 {
         "y" => 2,
         "z" => 3,
         "mag" | "linear" => 4,
-        _ => 0, // "auto" / anything else -> pick the max-variance axis on device
+        "pca" => 5, // rotation-invariant principal-axis (orientation-independent)
+        _ => 0,     // "auto" -> pick the max-variance axis on device
     }
 }
 

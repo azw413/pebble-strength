@@ -21,7 +21,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from rep_causal import CounterConfig, count_causal  # noqa: E402
 
-AXIS = {"auto": 0, "x": 1, "y": 2, "z": 3, "mag": 4, "linear": 4}
+AXIS = {"auto": 0, "x": 1, "y": 2, "z": 3, "mag": 4, "linear": 4, "pca": 5}
 DB = ROOT / "server" / "strength.db"
 
 
@@ -29,7 +29,7 @@ def build_harness():
     exe = pathlib.Path(tempfile.gettempdir()) / "rep_ctest"
     subprocess.run(
         ["cc", "-O2", "-o", str(exe), str(ROOT / "tools" / "rep_ctest.c"),
-         str(ROOT / "src" / "c" / "rep_counter.c"), "-I", str(ROOT / "src" / "c")],
+         str(ROOT / "src" / "c" / "rep_counter.c"), "-I", str(ROOT / "src" / "c"), "-lm"],
         check=True,
     )
     return exe
