@@ -49,11 +49,19 @@
   }
   .brand .dot { width: 10px; height: 10px; background: var(--accent);
     box-shadow: 0 -4px 0 var(--accent), 4px 0 0 var(--lcd); } /* tiny pixel glyph */
-  nav { display: flex; gap: 1.1rem; align-items: center; flex: 1; }
+  nav { display: flex; gap: 1.1rem; align-items: center; flex: 1;
+    min-width: 0; flex-wrap: wrap; row-gap: 0.5rem; }
   nav a { color: var(--muted); text-decoration: none; font-weight: 500;
     padding: 0.2rem 0; border-bottom: 2px solid transparent; transition: color .15s; }
   nav a:hover { color: var(--ink); }
-  nav form { margin-left: auto; }
+  header > form { margin-left: auto; }
+
+  /* Narrow screens: the links drop to a full-width row of their own, so the
+     header never gets wider than the viewport and drags the page sideways. */
+  @media (max-width: 700px) {
+    header { flex-wrap: wrap; gap: 0.5rem 0.9rem; }
+    nav { order: 3; flex-basis: 100%; column-gap: 0.95rem; }
+  }
 
   main { max-width: 900px; margin: 2rem auto; padding: 0 1.4rem; }
   h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 1.2rem; }
