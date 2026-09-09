@@ -919,6 +919,37 @@
       "equipment": "bodyweight",
       "loadable": false,
       "unilateral": true
+    },
+    {
+      "id": 48,
+      "name": "Hammer Curl to Press",
+      "body_area": "shoulders",
+      "primary_muscles": [
+        "biceps",
+        "brachialis",
+        "delts"
+      ],
+      "secondary_muscles": [
+        "triceps",
+        "upper traps",
+        "forearms",
+        "core"
+      ],
+      "load_factor": 0.0,
+      "category": "push",
+      "equipment": "dumbbell",
+      "loadable": true,
+      "unilateral": false,
+      "profile": {
+        "axis": "pca",
+        "lp_ms": 400,
+        "hp_ms": 3000,
+        "thr_pct": 30,
+        "min_rep_ms": 1500,
+        "min_amp": 60,
+        "warmup_ms": 700,
+        "confidence": 0.0
+      }
     }
   ]
 }

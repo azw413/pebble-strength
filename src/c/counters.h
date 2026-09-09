@@ -53,6 +53,7 @@ static const CounterConfig COUNTER_CONFIGS[] = {
   {0, 4, 500, 3000, 40, 600, 150, 0},  // 45 Hollow Rock
   {0, 4, 500, 3000, 40, 900, 150, 0},  // 46 Side Plank
   {0, 4, 500, 3000, 40, 1200, 150, 0},  // 47 Pistol Squat
+  {0, 5, 400, 3000, 30, 1500, 60, 700},  // 48 Hammer Curl to Press
 };
 
 #define COUNTER_CONFIG_COUNT (sizeof COUNTER_CONFIGS / sizeof COUNTER_CONFIGS[0])

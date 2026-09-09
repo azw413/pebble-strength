@@ -44,7 +44,7 @@ static const MovementInfo MOVEMENTS[] = {
   {"L-sit", 900, 5, 1},  // 31
   {"Russian Twist", 600, 5, 0},  // 32
   {"Face Pull", 800, 5, 0},  // 33
-  {"Ring Row", 1000, 5, 0},  // 34
+  {"Ring Row", 1100, 5, 0},  // 34
   {"Ring Support Hold", 900, 5, 1},  // 35
   {"Pike Push-up", 900, 5, 0},  // 36
   {"Hollow-body Hold", 900, 5, 1},  // 37
@@ -58,6 +58,7 @@ static const MovementInfo MOVEMENTS[] = {
   {"Hollow Rock", 600, 5, 0},  // 45
   {"Side Plank", 900, 5, 1},  // 46
   {"Pistol Squat", 1200, 5, 0},  // 47
+  {"Hammer Curl to Press", 1500, 5, 0},  // 48
 };
 
 #define MOVEMENT_COUNT (sizeof MOVEMENTS / sizeof MOVEMENTS[0])
