@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "features": [
+    "dur",
+    "acest",
+    "fftest",
+    "magstd",
+    "pk"
+  ],
+  "weights": [
+    0.096416,
+    0.021379,
+    0.02639,
+    0.013076,
+    0.205447
+  ],
+  "bias": -1.43711,
+  "trained_sets": 36
+}
