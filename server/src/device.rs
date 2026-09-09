@@ -132,6 +132,31 @@ pub async fn counters(
     Ok(Json(json!({ "format_version": 1, "counters": counters })))
 }
 
+/// GET /api/device/exercises — the movement-id -> name catalog. Lets the watch
+/// resolve exercise names from data instead of a compiled table, so a new
+/// exercise reaches the wrist over the sync rail with no app reinstall.
+pub async fn exercises(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let token = bearer_token(&headers);
+    let dev_fallback = state.cfg.dev_login;
+    let rows = db::run(&state.pool, move |conn| {
+        device_user(conn, token, dev_fallback)?; // require a valid device
+        let rows: Vec<(i32, String)> = exercises::table
+            .select((exercises::watch_movement_id, exercises::name))
+            .order(exercises::watch_movement_id.asc())
+            .load(conn)?;
+        Ok(rows)
+    })
+    .await?;
+    let exercises: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|(mid, name)| json!({ "movement_id": mid, "name": name }))
+        .collect();
+    Ok(Json(json!({ "format_version": 1, "exercises": exercises })))
+}
+
 #[derive(Deserialize)]
 pub struct RecordingUpload {
     pub movement_id: i32,

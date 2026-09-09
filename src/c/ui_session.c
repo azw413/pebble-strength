@@ -1,5 +1,6 @@
 #include <pebble.h>
 #include "movements.h"
+#include "exercises_store.h"
 #include "packfmt.h"
 #include "recorder.h"
 #include "rep_counter.h"

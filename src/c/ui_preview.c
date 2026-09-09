@@ -1,5 +1,6 @@
 #include <pebble.h>
 #include "movements.h"
+#include "exercises_store.h"
 #include "packfmt.h"
 #include "ui_preview.h"
 #include "ui_session.h"

@@ -4,6 +4,7 @@
 #include "ui_preview.h"
 #include "workouts_store.h"
 #include "counters_store.h"
+#include "exercises_store.h"
 #include "session_queue.h"
 
 #define MSG_SESSION_SET 3  // watch -> phone: one queued set summary to POST
@@ -113,6 +114,23 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
     counters_sync_set(cn_data->value->data, cn_data->length, cn_count->value->uint8);
   }
 
+  // Exercise-name catalog: {EX_TOTAL, EX_INDEX, EX_DATA} blobs, then {EX_DONE}.
+  // Makes the exercise list data-driven — new movements need no reinstall.
+  Tuple *ex_idx = dict_find(iter, MESSAGE_KEY_EX_INDEX);
+  Tuple *ex_data = dict_find(iter, MESSAGE_KEY_EX_DATA);
+  Tuple *ex_total = dict_find(iter, MESSAGE_KEY_EX_TOTAL);
+  if (ex_idx && ex_data) {
+    if (ex_idx->value->uint8 == 0 && ex_total) {
+      exercises_sync_begin(ex_total->value->uint8);
+    }
+    exercises_sync_set(ex_idx->value->uint8, ex_data->value->data, ex_data->length);
+  }
+  if (dict_find(iter, MESSAGE_KEY_EX_DONE)) {
+    if (exercises_sync_commit() && s_menu) {
+      menu_layer_reload_data(s_menu);  // refresh any names on the home list
+    }
+  }
+
   // Sync indicator + offline session-queue flush.
   if (dict_find(iter, MESSAGE_KEY_SYNC_BEGIN)) sync_indicator(true);
   if (dict_find(iter, MESSAGE_KEY_SYNC_END)) sync_indicator(false);
@@ -163,6 +181,7 @@ int main(void) {
   recorder_init();          // registers outbox handlers
   workouts_init();          // load persisted / embedded workouts
   counters_init();          // load persisted counter-config overrides
+  exercises_init();         // load persisted downloaded exercise-name catalog
   session_queue_init();     // load any offline set summaries awaiting upload
   app_message_register_inbox_received(inbox_received);
   app_message_open(512, RECORDER_OUTBOX_SIZE);

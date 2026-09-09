@@ -179,6 +179,60 @@ function syncCounters(done) {
   xhr.send();
 }
 
+// Pack exercises into blobs of whole [id, len, name...] records, each blob under
+// the AppMessage budget. Names are ASCII-clamped (the on-watch fonts are Latin).
+function packExercises(list) {
+  var blobs = [], cur = [], MAX = 400;
+  for (var i = 0; i < list.length; i++) {
+    var e = list[i], name = String(e.name || '');
+    var bytes = [];
+    for (var j = 0; j < name.length && bytes.length < 24; j++) {
+      var c = name.charCodeAt(j);
+      bytes.push(c > 0 && c < 128 ? c : 63);  // non-ASCII -> '?'
+    }
+    var rec = [e.movement_id & 255, bytes.length].concat(bytes);
+    if (cur.length + rec.length > MAX && cur.length) { blobs.push(cur); cur = []; }
+    cur = cur.concat(rec);
+  }
+  if (cur.length) blobs.push(cur);
+  return blobs;
+}
+
+// Download the exercise-name catalog and send it to the watch as chunked blobs
+// ({EX_TOTAL, EX_INDEX, EX_DATA} then {EX_DONE}), like the workout sync.
+function syncExercises(done) {
+  done = done || noop;
+  var s = getSettings();
+  if (!s.token) { done(); return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', s.server + '/api/device/exercises');
+  xhr.setRequestHeader('Authorization', 'Bearer ' + s.token);
+  xhr.onload = function() {
+    if (xhr.status !== 200) { console.log('exercise sync HTTP ' + xhr.status); done(); return; }
+    try {
+      var list = (JSON.parse(xhr.responseText).exercises) || [];
+      var blobs = packExercises(list);
+      if (!blobs.length) { done(); return; }
+      console.log('syncing ' + list.length + ' exercise names in ' + blobs.length + ' blob(s)');
+      var i = 0;
+      function next() {
+        if (i >= blobs.length) {
+          Pebble.sendAppMessage({ EX_DONE: 1 }, done, done);
+          return;
+        }
+        Pebble.sendAppMessage(
+          { EX_TOTAL: blobs.length, EX_INDEX: i, EX_DATA: blobs[i] },
+          function() { i++; next(); },
+          function() { console.log('exercise blob ' + i + ' send failed'); done(); }
+        );
+      }
+      next();
+    } catch (err) { console.log('exercise sync parse error: ' + err); done(); }
+  };
+  xhr.onerror = function() { console.log('exercise sync failed (server unreachable)'); done(); };
+  xhr.send();
+}
+
 function upload(meta, actual, bytes) {
   var s = getSettings();
   if (!s.token) {
@@ -221,14 +275,16 @@ Pebble.addEventListener('ready', function() {
   var s = getSettings();
   console.log('Strength pkjs ready, server: ' + s.server +
               ', token: ' + (s.token ? 'set' : 'NOT SET — open app settings'));
-  // Sync sequence, bracketed for the on-watch indicator: download workouts, then
-  // counter configs, then pull the offline session queue up to the server.
+  // Sync sequence, bracketed for the on-watch indicator: workouts, counter
+  // configs, exercise-name catalog, then pull the offline session queue.
   Pebble.sendAppMessage({ SYNC_BEGIN: 1 }, noop, noop);
   syncWorkouts(function() {
     syncCounters(function() {
-      Pebble.sendAppMessage({ SQ_PULL: 1 },
-        function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); },
-        function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); });
+      syncExercises(function() {
+        Pebble.sendAppMessage({ SQ_PULL: 1 },
+          function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); },
+          function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); });
+      });
     });
   });
 });

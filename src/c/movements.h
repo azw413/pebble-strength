@@ -63,6 +63,8 @@ static const MovementInfo MOVEMENTS[] = {
 
 #define MOVEMENT_COUNT (sizeof MOVEMENTS / sizeof MOVEMENTS[0])
 
-static inline const char *movement_name(uint8_t id) {
+// Compiled-in fallback name. The public movement_name() (exercises_store.c)
+// prefers a downloaded catalog and falls back to this when it hasn't synced.
+static inline const char *movement_name_builtin(uint8_t id) {
   return id < MOVEMENT_COUNT ? MOVEMENTS[id].name : "Unknown";
 }
