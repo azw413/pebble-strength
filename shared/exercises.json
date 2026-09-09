@@ -64,14 +64,14 @@
       "loadable": true,
       "unilateral": false,
       "profile": {
-        "axis": "pca",
+        "axis": "x",
         "lp_ms": 400,
         "hp_ms": 3000,
-        "thr_pct": 30,
+        "thr_pct": 18,
         "min_rep_ms": 900,
-        "min_amp": 45,
-        "warmup_ms": 700,
-        "confidence": 0.4
+        "min_amp": 55,
+        "warmup_ms": 1800,
+        "confidence": 0.8
       }
     },
     {
@@ -91,14 +91,14 @@
       "loadable": false,
       "unilateral": false,
       "profile": {
-        "axis": "pca",
+        "axis": "z",
         "lp_ms": 400,
         "hp_ms": 3000,
-        "thr_pct": 35,
+        "thr_pct": 30,
         "min_rep_ms": 900,
-        "min_amp": 45,
-        "warmup_ms": 1800,
-        "confidence": 0.8
+        "min_amp": 70,
+        "warmup_ms": 700,
+        "confidence": 0.9
       }
     },
     {
@@ -146,14 +146,14 @@
         "forearms"
       ],
       "profile": {
-        "axis": "pca",
+        "axis": "x",
         "lp_ms": 400,
         "hp_ms": 3000,
-        "thr_pct": 40,
+        "thr_pct": 25,
         "min_rep_ms": 900,
-        "min_amp": 75,
-        "warmup_ms": 1800,
-        "confidence": 0.8
+        "min_amp": 60,
+        "warmup_ms": 700,
+        "confidence": 0.9
       },
       "load_factor": 0.0,
       "category": "pull",
@@ -658,14 +658,14 @@
       "loadable": true,
       "unilateral": false,
       "profile": {
-        "axis": "pca",
+        "axis": "y",
         "lp_ms": 400,
         "hp_ms": 3000,
-        "thr_pct": 30,
-        "min_rep_ms": 1100,
-        "min_amp": 60,
-        "warmup_ms": 1800,
-        "confidence": 0.6
+        "thr_pct": 25,
+        "min_rep_ms": 1000,
+        "min_amp": 70,
+        "warmup_ms": 700,
+        "confidence": 0.7
       }
     },
     {
@@ -704,14 +704,14 @@
       "loadable": false,
       "unilateral": false,
       "profile": {
-        "axis": "pca",
+        "axis": "z",
         "lp_ms": 400,
         "hp_ms": 3000,
-        "thr_pct": 30,
+        "thr_pct": 25,
         "min_rep_ms": 900,
-        "min_amp": 45,
+        "min_amp": 55,
         "warmup_ms": 700,
-        "confidence": 0.5
+        "confidence": 0.6
       }
     },
     {
@@ -941,14 +941,14 @@
       "loadable": true,
       "unilateral": false,
       "profile": {
-        "axis": "pca",
+        "axis": "x",
         "lp_ms": 400,
         "hp_ms": 3000,
-        "thr_pct": 30,
+        "thr_pct": 18,
         "min_rep_ms": 1500,
         "min_amp": 60,
         "warmup_ms": 700,
-        "confidence": 0.0
+        "confidence": 0.5
       }
     }
   ]
