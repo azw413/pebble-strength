@@ -116,6 +116,7 @@ async fn main() {
         .route("/api/device/workouts", get(device::workouts))
         .route("/api/device/counters", get(device::counters))
         .route("/api/device/exercises", get(device::exercises))
+        .route("/api/device/rep-model", get(device::rep_model))
         .route("/api/device/recordings", post(device::upload_recording))
         .route("/api/device/sessions", post(device::sessions))
         .route("/recordings", get(pages::recordings_page))

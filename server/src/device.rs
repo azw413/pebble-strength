@@ -132,6 +132,73 @@ pub async fn counters(
     Ok(Json(json!({ "format_version": 1, "counters": counters })))
 }
 
+#[derive(Deserialize)]
+pub struct RepModelQuery {
+    /// Highest feature_version the app supports (defaults to 0 = none).
+    #[serde(default)]
+    pub fv: i32,
+}
+
+/// GET /api/device/rep-model?fv=N — the learned rep-counter model ("v2"), for
+/// apps that can run it. Returns the active model with the highest
+/// feature_version <= fv (what this app supports); empty if none. Older apps
+/// never call this and keep using the fixed-axis configs from /counters ("v1").
+pub async fn rep_model(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Query(q): axum::extract::Query<RepModelQuery>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    use crate::schema::rep_models as rm;
+    let token = bearer_token(&headers);
+    let dev_fallback = state.cfg.dev_login;
+    let fv = q.fv;
+    let row = db::run(&state.pool, move |conn| {
+        device_user(conn, token, dev_fallback)?; // require a valid device
+        let row: Option<(i32, i32, String, String, String, f32, Option<f32>)> = rm::table
+            .filter(rm::active.eq(true))
+            .filter(rm::feature_version.le(fv))
+            .order((rm::feature_version.desc(), rm::model_version.desc()))
+            .select((
+                rm::feature_version,
+                rm::model_version,
+                rm::features,
+                rm::movements,
+                rm::weights,
+                rm::bias,
+                rm::accuracy,
+            ))
+            .first(conn)
+            .optional()?;
+        Ok(row)
+    })
+    .await?;
+
+    let out = match row {
+        None => json!({ "model": null }),
+        Some((fver, mver, features, movements, weights, bias, acc)) => {
+            let feat: Vec<&str> = features.split(',').filter(|s| !s.is_empty()).collect();
+            let movs: Vec<i32> = movements
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
+            let w: Vec<f32> = serde_json::from_str(&weights).unwrap_or_default();
+            json!({
+                "model": {
+                    "feature_version": fver,
+                    "model_version": mver,
+                    "kind": 0,
+                    "features": feat,
+                    "movements": movs,
+                    "weights": w,
+                    "bias": bias,
+                    "accuracy": acc,
+                }
+            })
+        }
+    };
+    Ok(Json(out))
+}
+
 /// GET /api/device/exercises — the movement-id -> name catalog. Lets the watch
 /// resolve exercise names from data instead of a compiled table, so a new
 /// exercise reaches the wrist over the sync rail with no app reinstall.

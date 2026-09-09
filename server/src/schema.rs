@@ -52,6 +52,24 @@ diesel::table! {
 }
 
 diesel::table! {
+    rep_models (id) {
+        id -> Integer,
+        feature_version -> Integer,
+        model_version -> Integer,
+        movement_id -> Nullable<Integer>,
+        kind -> Integer,
+        features -> Text,
+        movements -> Text,
+        weights -> Text,
+        bias -> Float,
+        accuracy -> Nullable<Float>,
+        trained_sets -> Nullable<Integer>,
+        active -> Bool,
+        created_at -> Text,
+    }
+}
+
+diesel::table! {
     counter_configs (id) {
         id -> Integer,
         watch_movement_id -> Integer,
@@ -185,6 +203,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     devices,
     exercises,
     counter_configs,
+    rep_models,
     workouts,
     workout_exercises,
     workout_sets,

@@ -1,11 +1,16 @@
 {
-  "version": 1,
+  "feature_version": 1,
   "features": [
     "dur",
     "acest",
     "fftest",
     "magstd",
     "pk"
+  ],
+  "movements": [
+    3,
+    4,
+    7
   ],
   "weights": [
     0.096416,
@@ -15,5 +20,6 @@
     0.205447
   ],
   "bias": -1.43711,
+  "accuracy": 0.9295,
   "trained_sets": 36
 }

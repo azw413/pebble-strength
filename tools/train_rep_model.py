@@ -83,6 +83,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=str(ROOT / "server" / "strength.db"))
     ap.add_argument("--out", default=str(ROOT / "tools" / "rep_model.json"))
+    ap.add_argument("--feature-version", type=int, default=1)
+    ap.add_argument("--write-db", action="store_true",
+                    help="insert the trained model into rep_models as a new active version")
     args = ap.parse_args()
 
     rows = load(args.db)
@@ -127,15 +130,44 @@ def main():
 
     # Final model on all data, exported.
     w = fit(X, y)
+    weights = [round(float(v), 6) for v in w[:-1]]
+    bias = round(float(w[-1]), 6)
+    accuracy = round(1 - err / reps, 4)
+    movements = sorted(set(movs))
     model = {
-        "version": 1,
+        "feature_version": args.feature_version,
         "features": FEATURE_NAMES,
-        "weights": [round(float(v), 6) for v in w[:-1]],
-        "bias": round(float(w[-1]), 6),
+        "movements": movements,
+        "weights": weights,
+        "bias": bias,
+        "accuracy": accuracy,
         "trained_sets": len(X),
     }
     pathlib.Path(args.out).write_text(json.dumps(model, indent=2))
     print(f"\nwrote {args.out}")
+
+    if args.write_db:
+        con = sqlite3.connect(args.db)
+        # Next model_version for this feature_version; deactivate the old active one.
+        cur = con.execute(
+            "SELECT COALESCE(MAX(model_version), 0) FROM rep_models WHERE feature_version=?",
+            (args.feature_version,),
+        ).fetchone()[0]
+        mver = cur + 1
+        con.execute(
+            "UPDATE rep_models SET active=0 WHERE feature_version=? AND active=1",
+            (args.feature_version,),
+        )
+        con.execute(
+            """INSERT INTO rep_models
+               (feature_version, model_version, movement_id, kind, features, movements,
+                weights, bias, accuracy, trained_sets, active)
+               VALUES (?,?,NULL,0,?,?,?,?,?,?,1)""",
+            (args.feature_version, mver, ",".join(FEATURE_NAMES),
+             ",".join(map(str, movements)), json.dumps(weights), bias, accuracy, len(X)),
+        )
+        con.commit()
+        print(f"wrote rep_models: feature_version {args.feature_version}, model_version {mver} (active)")
 
 
 if __name__ == "__main__":
