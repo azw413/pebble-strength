@@ -192,6 +192,13 @@ bool recorder_is_capturing(void) {
   return s_cap != -1 && s_slots[s_cap].state == SLOT_CAPTURING;
 }
 
+uint16_t recorder_captured(const int16_t **xyz) {
+  if (s_cap == -1 || s_slots[s_cap].state != SLOT_CAPTURING) return 0;
+  Slot *s = &s_slots[s_cap];
+  if (xyz) *xyz = (const int16_t *)s->buf;  // RecSample is {int16 x,y,z} = interleaved
+  return s->count;
+}
+
 void recorder_begin(void) {
   if (s_cap != -1 && s_slots[s_cap].state == SLOT_CAPTURING) {
     return;  // already capturing this set

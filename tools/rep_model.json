@@ -2,8 +2,6 @@
   "feature_version": 1,
   "features": [
     "dur",
-    "acest",
-    "fftest",
     "magstd",
     "pk"
   ],
@@ -13,13 +11,11 @@
     7
   ],
   "weights": [
-    0.096416,
-    0.021379,
-    0.02639,
-    0.013076,
-    0.205447
+    0.003694,
+    0.013615,
+    0.22363
   ],
-  "bias": -1.43711,
-  "accuracy": 0.9295,
+  "bias": -1.152072,
+  "accuracy": 0.9262,
   "trained_sets": 36
 }

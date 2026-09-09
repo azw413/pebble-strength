@@ -1,7 +1,7 @@
 {
   "name": "strength",
   "author": "Andrew Whaley",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "keywords": [
     "pebble-app"
   ],
@@ -47,6 +47,7 @@
       "EX_INDEX",
       "EX_DATA",
       "EX_DONE",
+      "RM_DATA",
       "CLIENT_ID",
       "WORK_SECS",
       "PERFORMED_AT",

@@ -233,6 +233,49 @@ function syncExercises(done) {
   xhr.send();
 }
 
+var REP_FEATURE_VERSION = 1;  // features this app can compute (rep_model.c)
+
+function pushi32(b, v) { v = v | 0; b.push(v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255); }
+
+// Pack a learned model into the on-watch record (see rep_model_store.c):
+// [fver u8][mver u16][nfeat u8][nfeat x weight_q16 i32][bias_q16 i32][mcount u8][movements...]
+function packRepModel(m) {
+  var b = [];
+  b.push(m.feature_version & 255);
+  push16(b, m.model_version || 0);
+  b.push(m.weights.length & 255);
+  for (var i = 0; i < m.weights.length; i++) pushi32(b, Math.round(m.weights[i] * 65536));
+  pushi32(b, Math.round((m.bias || 0) * 65536));
+  var movs = m.movements || [];
+  b.push(movs.length & 255);
+  for (var j = 0; j < movs.length; j++) b.push(movs[j] & 255);
+  return b;
+}
+
+// Fetch the learned counter model this app supports and send it to the watch.
+// The server returns null for older feature versions -> nothing sent, watch
+// keeps using the fixed-axis counter.
+function syncRepModel(done) {
+  done = done || noop;
+  var s = getSettings();
+  if (!s.token) { done(); return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', s.server + '/api/device/rep-model?fv=' + REP_FEATURE_VERSION);
+  xhr.setRequestHeader('Authorization', 'Bearer ' + s.token);
+  xhr.onload = function() {
+    if (xhr.status !== 200) { console.log('rep-model HTTP ' + xhr.status); done(); return; }
+    try {
+      var m = JSON.parse(xhr.responseText).model;
+      if (!m || m.feature_version !== REP_FEATURE_VERSION) { console.log('no compatible rep model'); done(); return; }
+      console.log('syncing rep model v' + m.model_version + ' (' + m.movements.length + ' movements)');
+      Pebble.sendAppMessage({ RM_DATA: packRepModel(m) },
+        function() { done(); }, function() { console.log('rep model send failed'); done(); });
+    } catch (err) { console.log('rep-model parse error: ' + err); done(); }
+  };
+  xhr.onerror = function() { console.log('rep-model sync failed (server unreachable)'); done(); };
+  xhr.send();
+}
+
 function upload(meta, actual, bytes) {
   var s = getSettings();
   if (!s.token) {
@@ -281,9 +324,11 @@ Pebble.addEventListener('ready', function() {
   syncWorkouts(function() {
     syncCounters(function() {
       syncExercises(function() {
-        Pebble.sendAppMessage({ SQ_PULL: 1 },
-          function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); },
-          function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); });
+        syncRepModel(function() {
+          Pebble.sendAppMessage({ SQ_PULL: 1 },
+            function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); },
+            function() { Pebble.sendAppMessage({ SYNC_END: 1 }, noop, noop); });
+        });
       });
     });
   });

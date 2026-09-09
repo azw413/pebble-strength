@@ -5,6 +5,7 @@
 #include "workouts_store.h"
 #include "counters_store.h"
 #include "exercises_store.h"
+#include "rep_model_store.h"
 #include "session_queue.h"
 
 #define MSG_SESSION_SET 3  // watch -> phone: one queued set summary to POST
@@ -131,6 +132,12 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
     }
   }
 
+  // Learned counter model ("v2"): one packed record in RM_DATA.
+  Tuple *rm_data = dict_find(iter, MESSAGE_KEY_RM_DATA);
+  if (rm_data) {
+    rep_model_sync_set(rm_data->value->data, rm_data->length);
+  }
+
   // Sync indicator + offline session-queue flush.
   if (dict_find(iter, MESSAGE_KEY_SYNC_BEGIN)) sync_indicator(true);
   if (dict_find(iter, MESSAGE_KEY_SYNC_END)) sync_indicator(false);
@@ -182,6 +189,7 @@ int main(void) {
   workouts_init();          // load persisted / embedded workouts
   counters_init();          // load persisted counter-config overrides
   exercises_init();         // load persisted downloaded exercise-name catalog
+  rep_model_store_init();   // load persisted learned-counter model (v2)
   session_queue_init();     // load any offline set summaries awaiting upload
   app_message_register_inbox_received(inbox_received);
   app_message_open(512, RECORDER_OUTBOX_SIZE);

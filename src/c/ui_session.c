@@ -5,6 +5,8 @@
 #include "recorder.h"
 #include "rep_counter.h"
 #include "counters_store.h"
+#include "rep_model.h"
+#include "rep_model_store.h"
 #include "session_queue.h"
 #include "ui_session.h"
 
@@ -222,6 +224,23 @@ static void advance_after_rest(bool led_in) {
 }
 
 static void finish_set(uint8_t actual) {
+  // Learned counter (v2): for rep sets, if a downloaded model covers this
+  // movement, recount from the whole captured buffer at set end — orientation-
+  // independent, so it beats the live fixed-axis count on a rotated wrist. The
+  // user can still correct on the rest screen. Falls back to `actual` (the live
+  // count) when no model applies.
+  if (!cur_timed()) {
+    const RepModel *m = rep_model_current();
+    if (rep_model_has(m, cur_ex()->movement_id)) {
+      const int16_t *xyz = NULL;
+      uint16_t n = recorder_captured(&xyz);
+      int32_t feat[REP_NFEAT];
+      if (n && xyz && rep_features(xyz, n, 25, feat)) {
+        int c = rep_model_predict(m, feat);
+        if (c >= 0 && c <= 250) actual = (uint8_t)c;
+      }
+    }
+  }
   s_actual[s_cur_ex][s_cur_set] = actual;
   // Work time: counted up for rep sets, elapsed hold for timed ones.
   s_work_secs[s_cur_ex][s_cur_set] =
