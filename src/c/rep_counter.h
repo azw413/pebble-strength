@@ -47,7 +47,7 @@ typedef struct {
   // (x,y,z) over the selection window, then its principal eigenvector = the rep
   // direction. Projecting onto it is invariant to how the watch is oriented.
   int64_t cov[6];                // xx,yy,zz,xy,xz,yz (band-passed, in mG^2)
-  float pca_u[3];                // locked principal direction (unit vector)
+  int32_t pca_u[3];              // locked principal direction, Q12 unit vector
   int32_t amp_est_q8;            // running swing-amplitude estimate
   bool in_low;                   // inside a down-swing, waiting for the rise
   int32_t trough_q8;             // deepest point of the current down-swing

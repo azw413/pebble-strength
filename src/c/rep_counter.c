@@ -1,25 +1,46 @@
 #include "rep_counter.h"
 #include <string.h>
-#include <math.h>
 
-// Principal eigenvector of the accumulated 3x3 covariance (power iteration).
-// Sign-normalised (largest component positive) so it's deterministic and matches
-// the Python reference. Runs once per set when the selection window closes.
+static uint32_t isqrt32(uint32_t v);
+
+// Bit length of a non-negative int64 (position of the highest set bit + 1).
+static int bitlen64(int64_t v) {
+  int b = 0;
+  while (v > 0) { v >>= 1; b++; }
+  return b;
+}
+
+// Principal eigenvector of the accumulated 3x3 covariance, by integer power
+// iteration (no float / no libm — soft-float on-watch was crashing). Result is
+// a Q12 unit vector in pca_u (|u| ~ 4096), sign-normalised (largest component
+// positive) so it's deterministic. Runs once per set when the window closes.
+#define PCA_Q 12
 static void pca_solve(RepCounter *rc) {
-  float m00 = (float)rc->cov[0], m11 = (float)rc->cov[1], m22 = (float)rc->cov[2];
-  float m01 = (float)rc->cov[3], m02 = (float)rc->cov[4], m12 = (float)rc->cov[5];
-  float u0 = 1.0f, u1 = 1.0f, u2 = 1.0f;
+  int64_t m00 = rc->cov[0], m11 = rc->cov[1], m22 = rc->cov[2];
+  int64_t m01 = rc->cov[3], m02 = rc->cov[4], m12 = rc->cov[5];
+  int32_t u0 = 1, u1 = 1, u2 = 1;
   for (int it = 0; it < 16; it++) {
-    float v0 = m00 * u0 + m01 * u1 + m02 * u2;
-    float v1 = m01 * u0 + m11 * u1 + m12 * u2;
-    float v2 = m02 * u0 + m12 * u1 + m22 * u2;
-    float nrm = sqrtf(v0 * v0 + v1 * v1 + v2 * v2);
-    if (nrm < 1e-6f) break;
-    u0 = v0 / nrm; u1 = v1 / nrm; u2 = v2 / nrm;
+    int64_t v0 = m00 * u0 + m01 * u1 + m02 * u2;
+    int64_t v1 = m01 * u0 + m11 * u1 + m12 * u2;
+    int64_t v2 = m02 * u0 + m12 * u1 + m22 * u2;
+    // Reduce so each |v| < 2^15, keeping v*v + ... within uint32 for isqrt32.
+    int64_t mx = v0 < 0 ? -v0 : v0;
+    int64_t a1 = v1 < 0 ? -v1 : v1, a2 = v2 < 0 ? -v2 : v2;
+    if (a1 > mx) mx = a1;
+    if (a2 > mx) mx = a2;
+    if (mx == 0) break;  // degenerate (no motion) — keep last u
+    int sh = bitlen64(mx) - 15;
+    if (sh < 0) sh = 0;
+    int32_t w0 = (int32_t)(v0 >> sh), w1 = (int32_t)(v1 >> sh), w2 = (int32_t)(v2 >> sh);
+    uint32_t nrm = isqrt32((uint32_t)((int64_t)w0 * w0 + (int64_t)w1 * w1 + (int64_t)w2 * w2));
+    if (nrm == 0) break;
+    u0 = (int32_t)(((int64_t)w0 << PCA_Q) / nrm);
+    u1 = (int32_t)(((int64_t)w1 << PCA_Q) / nrm);
+    u2 = (int32_t)(((int64_t)w2 << PCA_Q) / nrm);
   }
   // Deterministic sign: make the largest-magnitude component positive.
-  float a0 = u0 < 0 ? -u0 : u0, a1 = u1 < 0 ? -u1 : u1, a2 = u2 < 0 ? -u2 : u2;
-  float dom = (a0 >= a1 && a0 >= a2) ? u0 : (a1 >= a2) ? u1 : u2;
+  int32_t b0 = u0 < 0 ? -u0 : u0, b1 = u1 < 0 ? -u1 : u1, b2 = u2 < 0 ? -u2 : u2;
+  int32_t dom = (b0 >= b1 && b0 >= b2) ? u0 : (b1 >= b2) ? u1 : u2;
   if (dom < 0) { u0 = -u0; u1 = -u1; u2 = -u2; }
   rc->pca_u[0] = u0; rc->pca_u[1] = u1; rc->pca_u[2] = u2;
 }
@@ -130,9 +151,11 @@ bool rep_counter_feed(RepCounter *rc, int16_t x, int16_t y, int16_t z, uint32_t 
       }
       return false;
     }
-    float s = (float)(ox >> 8) * rc->pca_u[0] + (float)(oy >> 8) * rc->pca_u[1] +
-              (float)(oz >> 8) * rc->pca_u[2];
-    osc = (int32_t)(s * 256.0f);  // back to Q8 for the shared hysteresis
+    // Project band-passed motion (Q8) onto the Q12 unit direction. The >>12
+    // cancels the unit-vector scale, leaving osc back in Q8 for the hysteresis.
+    int64_t proj = (int64_t)ox * rc->pca_u[0] + (int64_t)oy * rc->pca_u[1] +
+                   (int64_t)oz * rc->pca_u[2];
+    osc = (int32_t)(proj >> PCA_Q);
   } else {
     // Auto axis (mode 0): accumulate per-axis variance, then lock the strongest.
     if (!rc->axis_locked) {
