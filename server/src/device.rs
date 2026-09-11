@@ -133,6 +133,45 @@ pub async fn counters(
 }
 
 #[derive(Deserialize)]
+pub struct CrashReport {
+    pub code: i32,
+    #[serde(default)]
+    pub ctx: Option<i64>,
+    #[serde(default)]
+    pub heap: Option<i64>,
+    #[serde(default)]
+    pub app_version: String,
+}
+
+/// POST /api/device/crash — a breadcrumb from a crashed run (reported on the
+/// next boot). Pebble has no remote crash telemetry, so this is how we learn
+/// where store users' apps fault.
+pub async fn crash(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(r): Json<CrashReport>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    use crate::schema::crash_reports as cr;
+    let token = bearer_token(&headers);
+    let dev_fallback = state.cfg.dev_login;
+    db::run(&state.pool, move |conn| {
+        let uid = device_user(conn, token, dev_fallback).ok();
+        diesel::insert_into(cr::table)
+            .values((
+                cr::user_id.eq(uid),
+                cr::code.eq(r.code),
+                cr::ctx.eq(r.ctx),
+                cr::heap.eq(r.heap),
+                cr::app_version.eq(&r.app_version),
+            ))
+            .execute(conn)?;
+        Ok(())
+    })
+    .await?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
 pub struct RepModelQuery {
     /// Highest feature_version the app supports (defaults to 0 = none).
     #[serde(default)]

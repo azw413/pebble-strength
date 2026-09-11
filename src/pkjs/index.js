@@ -356,8 +356,25 @@ Pebble.addEventListener('webviewclosed', function(e) {
   }
 });
 
+// Report a previous run's crash (breadcrumb) to the server.
+function postCrash(p) {
+  var s = getSettings();
+  if (!s.token) { return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', s.server + '/api/device/crash');
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('Authorization', 'Bearer ' + s.token);
+  xhr.onload = function() { console.log('crash reported: ' + xhr.status); };
+  xhr.onerror = function() { console.log('crash report failed (server unreachable)'); };
+  xhr.send(JSON.stringify({
+    code: p.CRASH_CODE, ctx: p.CRASH_CTX, heap: p.CRASH_HEAP,
+    app_version: '1.3.1'
+  }));
+}
+
 Pebble.addEventListener('appmessage', function(e) {
   var p = e.payload;
+  if (p.CRASH_CODE !== undefined) { postCrash(p); return; }
   if (p.MSG_TYPE === MSG_SESSION_SET) { postSession(p); return; }
   var id = p.REC_ID;
   if (p.MSG_TYPE === MSG_REC_META) {

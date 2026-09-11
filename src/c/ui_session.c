@@ -8,6 +8,7 @@
 #include "rep_model.h"
 #include "rep_model_store.h"
 #include "session_queue.h"
+#include "crumb.h"
 #include "ui_session.h"
 
 // Guided session: Active set -> Rest -> ... -> Summary (SPEC.md §7).
@@ -240,7 +241,10 @@ static void finish_set(uint8_t actual) {
       const int16_t *xyz = NULL;
       uint16_t n = recorder_captured(&xyz);
       int32_t feat[REP_NFEAT];
-      if (n && xyz && rep_features(xyz, n, 25, feat)) {
+      crumb_set(CRUMB_MODEL, cur_ex()->movement_id);  // if we crash here, next boot reports it
+      bool ok = n && xyz && rep_features(xyz, n, 25, feat);
+      crumb_clear();
+      if (ok) {
         int c = rep_model_predict(m, feat);
         if (c >= 0 && c <= 250) actual = (uint8_t)c;
       }

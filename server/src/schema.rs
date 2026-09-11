@@ -52,6 +52,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    crash_reports (id) {
+        id -> Integer,
+        user_id -> Nullable<Integer>,
+        code -> Integer,
+        ctx -> Nullable<BigInt>,
+        heap -> Nullable<BigInt>,
+        app_version -> Text,
+        created_at -> Text,
+    }
+}
+
+diesel::table! {
     rep_models (id) {
         id -> Integer,
         feature_version -> Integer,
@@ -204,6 +216,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     exercises,
     counter_configs,
     rep_models,
+    crash_reports,
     workouts,
     workout_exercises,
     workout_sets,

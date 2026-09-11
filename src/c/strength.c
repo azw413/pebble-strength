@@ -7,6 +7,7 @@
 #include "exercises_store.h"
 #include "rep_model_store.h"
 #include "session_queue.h"
+#include "crumb.h"
 
 #define MSG_SESSION_SET 3  // watch -> phone: one queued set summary to POST
 
@@ -48,6 +49,19 @@ static void select_click(MenuLayer *menu, MenuIndex *index, void *ctx) {
 
 static bool s_flushing;          // an offline-queue flush is in progress
 static TextLayer *s_sync_layer;  // transient "Syncing..." banner on the home screen
+static Crumb s_crash;            // breadcrumb from a previous crashed run (code 0 = none)
+
+// Report a previous run's crash to the server (over the sync rail). No-op if the
+// last run exited cleanly. Sent once when the phone connects.
+static void report_crash(void) {
+  if (s_crash.code == CRUMB_NONE) return;
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK) return;
+  dict_write_uint8(iter, MESSAGE_KEY_CRASH_CODE, s_crash.code);
+  dict_write_uint32(iter, MESSAGE_KEY_CRASH_CTX, s_crash.ctx);
+  dict_write_uint32(iter, MESSAGE_KEY_CRASH_HEAP, s_crash.heap);
+  if (app_message_outbox_send() == APP_MSG_OK) s_crash.code = CRUMB_NONE;  // sent once
+}
 
 static void sync_hide(void *ctx) {
   if (s_sync_layer) layer_set_hidden(text_layer_get_layer(s_sync_layer), true);
@@ -139,7 +153,7 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   }
 
   // Sync indicator + offline session-queue flush.
-  if (dict_find(iter, MESSAGE_KEY_SYNC_BEGIN)) sync_indicator(true);
+  if (dict_find(iter, MESSAGE_KEY_SYNC_BEGIN)) { sync_indicator(true); report_crash(); }
   if (dict_find(iter, MESSAGE_KEY_SYNC_END)) sync_indicator(false);
   Tuple *sq_ack = dict_find(iter, MESSAGE_KEY_SQ_ACK);
   if (sq_ack) {
@@ -191,6 +205,7 @@ int main(void) {
   exercises_init();         // load persisted downloaded exercise-name catalog
   rep_model_store_init();   // load persisted learned-counter model (v2)
   session_queue_init();     // load any offline set summaries awaiting upload
+  crumb_check_previous(&s_crash);  // did the previous run crash? report on sync
   app_message_register_inbox_received(inbox_received);
   app_message_open(512, RECORDER_OUTBOX_SIZE);
 
