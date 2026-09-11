@@ -229,7 +229,12 @@ static void finish_set(uint8_t actual) {
   // independent, so it beats the live fixed-axis count on a rotated wrist. The
   // user can still correct on the rest screen. Falls back to `actual` (the live
   // count) when no model applies.
-  if (!cur_timed()) {
+  // Only when there's comfortable heap headroom: the model needs ~6 KB of
+  // scratch, and on a late set a previous set may still be uploading (both
+  // recorder buffers held), leaving little free. If memory is tight we skip the
+  // model and keep the live fixed-axis count rather than risk an allocation
+  // failure taking down the app mid-workout.
+  if (!cur_timed() && heap_bytes_free() > 8000) {
     const RepModel *m = rep_model_current();
     if (rep_model_has(m, cur_ex()->movement_id)) {
       const int16_t *xyz = NULL;

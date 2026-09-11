@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define MAXN 600   // bounded analysis length (fits smallest platform RAM); longer sets decimate
+#define MAXN 500   // bounded analysis length; scratch malloc ~5KB, guarded by heap check
 
 // Scratch is allocated on demand (~6 KB) only for the brief once-per-set feature
 // computation, then freed — so it doesn't permanently reduce the app heap on the
@@ -37,9 +37,18 @@ static void smooth_same(const int16_t *src, int16_t *dst, uint16_t n, uint16_t w
   }
 }
 
-static int cmp_i16(const void *a, const void *b) {
-  int16_t x = *(const int16_t *)a, y = *(const int16_t *)b;
-  return (x > y) - (x < y);
+// In-place ascending sort. Shell sort: iterative (bounded stack, unlike qsort
+// whose worst-case recursion can overflow Pebble's small stack) and plenty fast
+// for a few hundred elements once per set.
+static void sort_i16(int16_t *a, int n) {
+  for (int gap = n / 2; gap > 0; gap /= 2) {
+    for (int i = gap; i < n; i++) {
+      int16_t t = a[i];
+      int j = i;
+      while (j >= gap && a[j - gap] > t) { a[j] = a[j - gap]; j -= gap; }
+      a[j] = t;
+    }
+  }
 }
 
 static int32_t pctile(const int16_t *sorted, int n, int q) {
@@ -87,7 +96,7 @@ static bool rep_features_inner(const int16_t *xyz, uint16_t n, uint16_t rate,
   // Segmentation on s_lin: env = smooth(lin, 0.6s); thr from percentiles.
   smooth_same(s_lin, s_a, m, (uint16_t)(0.6 * rw));  // env -> s_a
   memcpy(s_b, s_a, (size_t)m * sizeof(int16_t));
-  qsort(s_b, m, sizeof(int16_t), cmp_i16);
+  sort_i16(s_b, m);
   int32_t p10 = pctile(s_b, m, 10), p90 = pctile(s_b, m, 90);
   int32_t thr = p10 + 22 * (p90 - p10) / 100;
   int first = -1, last = -1;
@@ -109,7 +118,7 @@ static bool rep_features_inner(const int16_t *xyz, uint16_t n, uint16_t rate,
 
   // pk: cross above the 60th pct of the segment, then below half of it
   for (int i = 0; i < len; i++) s_b[i] = (int16_t)s_mag[i0 + i];
-  qsort(s_b, len, sizeof(int16_t), cmp_i16);
+  sort_i16(s_b, len);
   int32_t p60 = pctile(s_b, len, 60), low = p60 / 2;
   int pk = 0; bool above = false;
   for (int i = i0; i < i1; i++) {

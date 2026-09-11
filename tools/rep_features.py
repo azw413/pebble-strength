@@ -19,7 +19,7 @@ FEATURE_NAMES = ["dur", "magstd", "pk"]
 # Bound the analysis length so the on-watch scratch fits the smallest platform
 # (diorite). Longer sets are DECIMATED (subsampled), not truncated, so a long
 # set keeps all its reps; window sizes scale down and dur scales back up.
-MAXN = 600
+MAXN = 500
 
 
 def _isqrt(v):
