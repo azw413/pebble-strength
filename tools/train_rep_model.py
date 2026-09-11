@@ -25,8 +25,8 @@ from rep_features import FEATURE_NAMES, feature_vector  # noqa: E402
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 # Movements + recording ids with trustworthy (varied, corrected) labels.
 CLEAN = {
-    4: [10, 11, 13, 14, 17, 18, 22, 23, 24, 37, 127, 128, 129, 161, 162, 163, 363, 364, 365],
-    7: [49, 50, 51, 52, 81, 82, 83, 84],
+    4: [10, 11, 13, 14, 17, 18, 22, 23, 24, 37, 127, 128, 129, 161, 162, 163, 363, 364, 365, 368, 369],
+    7: [49, 50, 51, 52, 81, 82, 83, 84, 370, 371],
     3: [68, 69, 70, 100, 101, 102, 133, 134, 135],
 }
 
