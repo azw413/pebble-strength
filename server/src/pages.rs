@@ -583,9 +583,12 @@ pub async fn session_detail_page(
             .first(conn)
             .optional()?
             .ok_or(AppError::NotFound)?;
+        // Order by when each set was actually performed, not insertion order:
+        // an offline-queued set flushed after later online sets would otherwise
+        // display out of sequence (its `position` is assigned at flush time).
         let sets: Vec<crate::models::SessionSet> = session_sets::table
             .filter(session_sets::session_id.eq(id))
-            .order(session_sets::position.asc())
+            .order((session_sets::performed_at.asc(), session_sets::position.asc()))
             .load(conn)?;
 
         // Group consecutive same-movement sets into exercises; derive per-set
