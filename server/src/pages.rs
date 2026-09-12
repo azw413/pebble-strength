@@ -17,6 +17,16 @@ fn script_json<T: serde::Serialize>(value: &T) -> Result<String, AppError> {
     Ok(s.replace('<', "\\u003c"))
 }
 
+/// Durations for humans: "45s" below a minute, "2m 15s" above. The gap is a
+/// non-breaking space, so a duration never splits across two lines.
+pub fn fmt_secs(secs: i64) -> String {
+    match (secs / 60, secs % 60) {
+        (0, s) => format!("{s}s"),
+        (m, 0) => format!("{m}m"),
+        (m, s) => format!("{m}m\u{a0}{s}s"),
+    }
+}
+
 /// Gate admin-only pages: if ADMIN_EMAIL is set, only that account passes;
 /// everyone else gets a 404 (so the page's existence isn't revealed).
 fn require_admin(state: &AppState, email: &str) -> Result<(), AppError> {
@@ -502,6 +512,15 @@ pub struct SessionCard {
     pub reps: i32,
     pub hold_secs: i32,
     pub work_secs: i32,
+}
+
+impl SessionCard {
+    fn hold_fmt(&self) -> String {
+        fmt_secs(self.hold_secs as i64)
+    }
+    fn work_fmt(&self) -> String {
+        fmt_secs(self.work_secs as i64)
+    }
 }
 
 #[derive(Template)]
@@ -1055,4 +1074,21 @@ pub async fn exercises_page(
 
     let exercises_json = script_json(&rows)?;
     Ok(Html(ExercisesTemplate { rows, cats, total, exercises_json }.render()?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn durations_read_as_minutes_past_a_minute() {
+        assert_eq!(fmt_secs(0), "0s");
+        assert_eq!(fmt_secs(45), "45s");
+        assert_eq!(fmt_secs(59), "59s");
+        assert_eq!(fmt_secs(60), "1m");
+        assert_eq!(fmt_secs(61), "1m\u{a0}1s");
+        assert_eq!(fmt_secs(90), "1m\u{a0}30s");
+        assert_eq!(fmt_secs(600), "10m");
+        assert_eq!(fmt_secs(3671), "61m\u{a0}11s");
+    }
 }

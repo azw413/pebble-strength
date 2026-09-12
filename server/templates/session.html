@@ -48,6 +48,14 @@ const byMovement = new Map(EXERCISES.map(e => [e.movement_id, e]));
 
 let state = JSON.parse(JSON.stringify(SESSION));
 
+// Durations for humans: "45s" below a minute, "2m 15s" above (the gap is a
+// non-breaking space, so a duration never splits across two lines).
+function fmtSecs(n) {
+  const m = Math.floor(n / 60), r = n % 60;
+  if (!m) return r + 's';
+  return r ? m + 'm\u00a0' + r + 's' : m + 'm';
+}
+
 function el(tag, cls, text) {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
@@ -106,9 +114,9 @@ function setRow(ex, s, j) {
   row.appendChild(el('span', 'muted', 'kg'));
 
   if (s.work_secs !== null && s.work_secs !== undefined)
-    row.appendChild(el('span', 'badge', s.work_secs + ' s work'));
+    row.appendChild(el('span', 'badge', fmtSecs(s.work_secs) + ' work'));
   if (s.rest_secs !== null && s.rest_secs !== undefined)
-    row.appendChild(el('span', 'badge', s.rest_secs + ' s rest'));
+    row.appendChild(el('span', 'badge', fmtSecs(s.rest_secs) + ' rest'));
 
   const rm = el('button', 'small', '×');
   rm.onclick = () => { ex.sets.splice(j, 1); if (ex.sets.length === 0) removeExercise(ex); render(); };

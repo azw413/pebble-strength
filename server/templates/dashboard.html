@@ -185,7 +185,7 @@ function renderInsights(d) {
   box.appendChild(card('Volume', fmt(ins.total_volume), 'kg·reps'));
   box.appendChild(card('Sessions', ins.session_count, 'view all →', '/sessions'));
   box.appendChild(card('Best 1RM', ins.best_1rm != null ? fmt(ins.best_1rm) + ' kg' : '—', exName()));
-  box.appendChild(card('Time held', ins.hold_secs + ' s', ''));
+  box.appendChild(card('Time held', ins.hold_fmt, ''));
   box.appendChild(card('Bodyweight', ins.bodyweight + ' kg', ins.has_bodyweight ? '' : 'default'));
 }
 
