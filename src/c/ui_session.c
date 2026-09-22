@@ -235,16 +235,22 @@ static void finish_set(uint8_t actual) {
   // recorder buffers held), leaving little free. If memory is tight we skip the
   // model and keep the live fixed-axis count rather than risk an allocation
   // failure taking down the app mid-workout.
-  if (!cur_timed() && heap_bytes_free() > 8000) {
+  // Breadcrumb the whole save path (ctx = movement + phase*1000) so a crash
+  // anywhere here is pinpointed on the next boot. Cleared at every exit below.
+  uint8_t mv = cur_ex()->movement_id;
+  crumb_set(CRUMB_STAGE, mv + 1000);  // phase 1: model
+
+  // Learned counter (v2): recount the whole captured set, orientation-
+  // independent. Skip it if a previous set is still uploading or heap is tight —
+  // that concurrent-upload moment is exactly when memory is scarce — and keep
+  // the live fixed-axis count (near-identical for a normally-worn set).
+  if (!cur_timed() && !recorder_is_busy() && heap_bytes_free() > 9000) {
     const RepModel *m = rep_model_current();
-    if (rep_model_has(m, cur_ex()->movement_id)) {
+    if (rep_model_has(m, mv)) {
       const int16_t *xyz = NULL;
       uint16_t n = recorder_captured(&xyz);
       int32_t feat[REP_NFEAT];
-      crumb_set(CRUMB_MODEL, cur_ex()->movement_id);  // if we crash here, next boot reports it
-      bool ok = n && xyz && rep_features(xyz, n, 25, feat);
-      crumb_clear();
-      if (ok) {
+      if (n && xyz && rep_features(xyz, n, 25, feat)) {
         int c = rep_model_predict(m, feat);
         if (c >= 0 && c <= 250) actual = (uint8_t)c;
       }
@@ -257,24 +263,29 @@ static void finish_set(uint8_t actual) {
   accel_stop();
   s_label_client_id = session_queue_next_id();
   s_label_weight_q = cur_ex()->weight_q;
-  recorder_stage(cur_ex()->movement_id, s_cur_set, cur_timed(), s_workout.name,
+  crumb_set(CRUMB_STAGE, mv + 2000);  // phase 2: stage + kick off upload
+  recorder_stage(mv, s_cur_set, cur_timed(), s_workout.name,
                  s_label_client_id, s_label_weight_q);
   s_label_pending = true;
   s_label_ex = s_cur_ex;
   s_label_set = s_cur_set;
+  crumb_set(CRUMB_STAGE, mv + 3000);  // phase 3: transition
   if (is_last_set()) {
     enter_summary();
+    crumb_clear();
     return;
   }
   uint16_t rest = packfmt_rest_secs(cur_set());
   if (rest == 0) {
     advance_after_rest(false);  // no rest -> the next set gets its own lead-in
+    crumb_clear();
     return;
   }
   s_phase = PHASE_REST;
   s_rest_remaining = rest;
   schedule_tick();
   redraw();
+  crumb_clear();
 }
 
 static void tick(void *context) {

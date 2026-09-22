@@ -199,6 +199,17 @@ uint16_t recorder_captured(const int16_t **xyz) {
   return s->count;
 }
 
+bool recorder_is_busy(void) {
+  for (int8_t i = 0; i < NUM_SLOTS; i++) {
+    SlotState st = s_slots[i].state;
+    if (st == SLOT_STAGED || st == SLOT_SEND_META || st == SLOT_SEND_CHUNKS ||
+        st == SLOT_WAIT_LABEL || st == SLOT_SEND_DONE) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void recorder_begin(void) {
   if (s_cap != -1 && s_slots[s_cap].state == SLOT_CAPTURING) {
     return;  // already capturing this set

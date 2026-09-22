@@ -24,6 +24,10 @@ void recorder_feed(int16_t x, int16_t y, int16_t z);
 // learned counter to featurise at set end. Returns the sample count (0 if not
 // capturing); *xyz points at the live buffer (valid until stage/abort).
 uint16_t recorder_captured(const int16_t **xyz);
+
+// True if a previously-staged set is still being uploaded (a slot in a STAGED or
+// SEND_* state). Used to avoid extra memory pressure at that moment.
+bool recorder_is_busy(void);
 void recorder_stage(uint8_t movement_id, uint8_t set_index, bool timed,
                     const char *workout_name, uint32_t client_set_id, uint16_t weight_q);
 void recorder_set_label(uint8_t actual);
