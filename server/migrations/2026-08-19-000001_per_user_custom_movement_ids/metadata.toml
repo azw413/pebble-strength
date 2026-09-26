@@ -1,0 +1,3 @@
+# Rebuilding `exercises` needs PRAGMA foreign_keys = OFF, which SQLite ignores
+# inside a transaction — so this migration manages its own. See up.sql.
+run_in_transaction = false
