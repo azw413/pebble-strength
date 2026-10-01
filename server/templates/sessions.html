@@ -43,8 +43,8 @@ connected — each set is logged automatically and grouped into a session.</p>
       <td class="num">{{ r.exercises }}</td>
       <td class="num">{{ r.sets }}</td>
       <td class="num">{% if r.reps > 0 %}{{ r.reps }}{% else %}—{% endif %}</td>
-      <td class="num">{% if r.hold_secs > 0 %}{{ r.hold_secs }} s{% else %}—{% endif %}</td>
-      <td class="num">{% if r.work_secs > 0 %}{{ r.work_secs }} s{% else %}—{% endif %}</td>
+      <td class="num">{% if r.hold_secs > 0 %}{{ r.hold_fmt() }}{% else %}—{% endif %}</td>
+      <td class="num">{% if r.work_secs > 0 %}{{ r.work_fmt() }}{% else %}—{% endif %}</td>
       <td class="action"><a class="btn small" href="/sessions/{{ r.id }}">Edit</a></td>
     </tr>
   {% endfor %}
