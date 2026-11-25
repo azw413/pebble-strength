@@ -352,12 +352,35 @@ static void draw_text_wrap(GContext *ctx, const char *text, const char *font_key
 // containing letters must use a GOTHIC face or it renders blank.
 #define FONT_HUGE_NUM FONT_KEY_ROBOTO_BOLD_SUBSET_49
 
+// Bigger numeric face for the roomy emery/Time 2 screen. LECO is the LCD-style
+// time font — digits and ':' only (fine for timers/counts; never for '/'). The
+// 60px size exists only on emery; elsewhere the big layout never runs (height <
+// 200), so the fallback keeps it compiling.
+#if defined(PBL_PLATFORM_EMERY)
+#define FONT_HUGE_NUM_BIG FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM  // 60px, has digits + ':'
+#else
+#define FONT_HUGE_NUM_BIG FONT_HUGE_NUM
+#endif
+
 static void render_active(GContext *ctx, GRect b) {
   char buf[64];
   const PackExercise *e = cur_ex();
+  // Taller screens (emery/Time 2, 228px) spread the content and use larger
+  // fonts; small screens keep their hand-tuned compact layout unchanged.
+  bool big = b.size.h >= 200;
 
-  draw_text(ctx, movement_name(e->movement_id), FONT_KEY_GOTHIC_24_BOLD,
-            GRect(2, 0, b.size.w - 4, 28));
+  GRect r_title = big ? GRect(2, 10, b.size.w - 4, 34) : GRect(2, 0, b.size.w - 4, 28);
+  GRect r_set   = big ? GRect(2, 48, b.size.w - 4, 30) : GRect(2, 26, b.size.w - 4, 26);
+  GRect r_num   = big ? GRect(0, 88, b.size.w, 76)     : GRect(0, 50, b.size.w, 54);
+  GRect r_sub   = big ? GRect(2, 168, b.size.w - 4, 30): GRect(2, 104, b.size.w - 4, 32);
+  GRect r_foot  = big ? GRect(2, b.size.h - 26, b.size.w - 4, 24)
+                      : GRect(2, b.size.h - 24, b.size.w - 4, 22);
+  const char *F_TITLE = big ? FONT_KEY_GOTHIC_28_BOLD : FONT_KEY_GOTHIC_24_BOLD;
+  const char *F_SET   = big ? FONT_KEY_GOTHIC_28 : FONT_KEY_GOTHIC_24;
+  const char *F_NUM   = big ? FONT_HUGE_NUM_BIG : FONT_HUGE_NUM;
+  const char *F_FOOT  = big ? FONT_KEY_GOTHIC_24 : FONT_KEY_GOTHIC_18;
+
+  draw_text(ctx, movement_name(e->movement_id), F_TITLE, r_title);
 
   if (e->weight_q > 0) {
     snprintf(buf, sizeof buf, "Set %d/%d  %d kg", s_cur_set + 1, e->set_count,
@@ -365,11 +388,7 @@ static void render_active(GContext *ctx, GRect b) {
   } else {
     snprintf(buf, sizeof buf, "Set %d of %d", s_cur_set + 1, e->set_count);
   }
-  draw_text(ctx, buf, FONT_KEY_GOTHIC_24, GRect(2, 26, b.size.w - 4, 26));
-
-  GRect big = GRect(0, 50, b.size.w, 54);       // huge digits
-  GRect sub = GRect(2, 104, b.size.w - 4, 32);  // large secondary line
-  GRect foot = GRect(2, b.size.h - 24, b.size.w - 4, 22);
+  draw_text(ctx, buf, F_SET, r_set);
 
 #ifdef PBL_COLOR
   graphics_context_set_text_color(ctx, GColorDarkCandyAppleRed);
@@ -377,45 +396,57 @@ static void render_active(GContext *ctx, GRect b) {
   if (s_hold_state == HOLD_LEADIN) {
     // Get into position — the 3-2-1 before capture starts (rep and timed alike).
     snprintf(buf, sizeof buf, "%d", s_leadin);
-    draw_text(ctx, buf, FONT_HUGE_NUM, big);
+    draw_text(ctx, buf, F_NUM, r_num);
     graphics_context_set_text_color(ctx, GColorBlack);
-    draw_text(ctx, "get ready", FONT_KEY_GOTHIC_28_BOLD, sub);
-    draw_text(ctx, "get into position", FONT_KEY_GOTHIC_18, foot);
+    draw_text(ctx, "get ready", FONT_KEY_GOTHIC_28_BOLD, r_sub);
+    draw_text(ctx, "get into position", F_FOOT, r_foot);
   } else if (!cur_timed()) {
-    // Reps are the headline — the big count you read and correct. (BITHAM has
-    // the '/', unlike the digits-only huge font.) Work timer sits small below.
-    if (cur_amrap()) {
+    // Reps are the headline — the big count you read and correct. On big screens
+    // the count goes huge (LECO, so no '/' — the target drops to the sub line);
+    // small screens keep "N / M" in BITHAM, which has the '/'.
+    if (big && !cur_amrap()) {
       snprintf(buf, sizeof buf, "%d", s_counter);
+      draw_text(ctx, buf, FONT_HUGE_NUM_BIG, r_num);
     } else {
-      snprintf(buf, sizeof buf, "%d / %d", s_counter, cur_set().target);
+      if (cur_amrap()) snprintf(buf, sizeof buf, "%d", s_counter);
+      else snprintf(buf, sizeof buf, "%d / %d", s_counter, cur_set().target);
+      draw_text(ctx, buf, big ? FONT_HUGE_NUM_BIG : FONT_KEY_BITHAM_42_BOLD,
+                big ? r_num : GRect(0, 50, b.size.w, 50));
     }
-    draw_text(ctx, buf, FONT_KEY_BITHAM_42_BOLD, GRect(0, 50, b.size.w, 50));
     graphics_context_set_text_color(ctx, GColorBlack);
-    snprintf(buf, sizeof buf, "reps    work %d:%02d", s_work_elapsed / 60, s_work_elapsed % 60);
-    draw_text(ctx, buf, FONT_KEY_GOTHIC_18, GRect(2, 104, b.size.w - 4, 22));
-    draw_text(ctx, "select = done", FONT_KEY_GOTHIC_18, foot);
+    if (big && !cur_amrap()) {
+      snprintf(buf, sizeof buf, "of %d   work %d:%02d", cur_set().target,
+               s_work_elapsed / 60, s_work_elapsed % 60);
+    } else {
+      snprintf(buf, sizeof buf, "reps    work %d:%02d", s_work_elapsed / 60, s_work_elapsed % 60);
+    }
+    draw_text(ctx, buf, big ? FONT_KEY_GOTHIC_24 : FONT_KEY_GOTHIC_18,
+              big ? r_sub : GRect(2, 104, b.size.w - 4, 22));
+    draw_text(ctx, "select = done", F_FOOT, r_foot);
   } else if (s_hold_state == HOLD_IDLE) {
     snprintf(buf, sizeof buf, "%d", cur_set().target);
-    draw_text(ctx, buf, FONT_HUGE_NUM, big);
+    draw_text(ctx, buf, F_NUM, r_num);
     graphics_context_set_text_color(ctx, GColorBlack);
-    draw_text(ctx, "second hold", FONT_KEY_GOTHIC_28_BOLD, sub);
-    draw_text(ctx, "select = start", FONT_KEY_GOTHIC_18, foot);
+    draw_text(ctx, "second hold", FONT_KEY_GOTHIC_28_BOLD, r_sub);
+    draw_text(ctx, "select = start", F_FOOT, r_foot);
   } else {
     snprintf(buf, sizeof buf, "%d", s_hold_remaining);
-    draw_text(ctx, buf, FONT_HUGE_NUM, big);
+    draw_text(ctx, buf, F_NUM, r_num);
     graphics_context_set_text_color(ctx, GColorBlack);
-    draw_text(ctx, "hold!", FONT_KEY_GOTHIC_28_BOLD, sub);
-    draw_text(ctx, "select = end early", FONT_KEY_GOTHIC_18, foot);
+    draw_text(ctx, "hold!", FONT_KEY_GOTHIC_28_BOLD, r_sub);
+    draw_text(ctx, "select = end early", F_FOOT, r_foot);
   }
 }
 
 static void render_rest(GContext *ctx, GRect b) {
   char buf[48];
+  bool big = b.size.h >= 200;
   // The last 3s of rest double as the get-into-position countdown for the next
   // set, so capture starts clean the instant rest hits zero.
   bool leadin = s_rest_remaining <= 3;
-  draw_text(ctx, leadin ? "Get ready" : "Rest", FONT_KEY_GOTHIC_24_BOLD,
-            GRect(2, 0, b.size.w - 4, 22));
+  draw_text(ctx, leadin ? "Get ready" : "Rest",
+            big ? FONT_KEY_GOTHIC_28_BOLD : FONT_KEY_GOTHIC_24_BOLD,
+            big ? GRect(2, 8, b.size.w - 4, 32) : GRect(2, 0, b.size.w - 4, 22));
 
 #ifdef PBL_COLOR
   graphics_context_set_text_color(ctx, leadin ? GColorDarkCandyAppleRed : GColorDukeBlue);
@@ -425,13 +456,15 @@ static void render_rest(GContext *ctx, GRect b) {
   } else {
     snprintf(buf, sizeof buf, "%d:%02d", s_rest_remaining / 60, s_rest_remaining % 60);
   }
-  draw_text(ctx, buf, FONT_HUGE_NUM, GRect(0, 20, b.size.w, 50));
+  draw_text(ctx, buf, big ? FONT_HUGE_NUM_BIG : FONT_HUGE_NUM,
+            big ? GRect(0, 44, b.size.w, 76) : GRect(0, 20, b.size.w, 50));
   graphics_context_set_text_color(ctx, GColorBlack);
 
   // The set you just finished — correct it here with Up/Down.
   snprintf(buf, sizeof buf, "done: %d%s", s_actual[s_cur_ex][s_cur_set],
            cur_timed() ? " s" : "");
-  draw_text(ctx, buf, FONT_KEY_GOTHIC_28_BOLD, GRect(2, 68, b.size.w - 4, 30));
+  draw_text(ctx, buf, FONT_KEY_GOTHIC_28_BOLD,
+            big ? GRect(2, 124, b.size.w - 4, 30) : GRect(2, 68, b.size.w - 4, 30));
 
   // What's coming up — the thing you're resting for — in red, with its target.
   uint8_t nx = s_cur_ex, ns = s_cur_set + 1;
@@ -453,12 +486,14 @@ static void render_rest(GContext *ctx, GRect b) {
 #ifdef PBL_COLOR
     graphics_context_set_text_color(ctx, GColorDarkCandyAppleRed);
 #endif
-    draw_text_wrap(ctx, buf, FONT_KEY_GOTHIC_24_BOLD, GRect(2, 98, b.size.w - 4, 48));
+    draw_text_wrap(ctx, buf, FONT_KEY_GOTHIC_24_BOLD,
+                   big ? GRect(2, 158, b.size.w - 4, 42) : GRect(2, 98, b.size.w - 4, 48));
     graphics_context_set_text_color(ctx, GColorBlack);
   }
 
-  draw_text(ctx, "up/dn fix  ·  select go", FONT_KEY_GOTHIC_18,
-            GRect(2, b.size.h - 20, b.size.w - 4, 18));
+  draw_text(ctx, "up/dn fix  ·  select go", big ? FONT_KEY_GOTHIC_24 : FONT_KEY_GOTHIC_18,
+            big ? GRect(2, b.size.h - 24, b.size.w - 4, 22)
+                : GRect(2, b.size.h - 20, b.size.w - 4, 18));
 }
 
 static void render_summary(GContext *ctx, GRect b) {
@@ -476,14 +511,19 @@ static void render_summary(GContext *ctx, GRect b) {
   }
   int dur = (int)(time(NULL) - s_started);
 
-  draw_text(ctx, "Done!", FONT_KEY_GOTHIC_28_BOLD, GRect(2, 2, b.size.w - 4, 32));
+  bool big = b.size.h >= 200;
+  draw_text(ctx, "Done!", FONT_KEY_GOTHIC_28_BOLD,
+            big ? GRect(2, 10, b.size.w - 4, 34) : GRect(2, 2, b.size.w - 4, 32));
   snprintf(buf, sizeof buf, "%d:%02d", dur / 60, dur % 60);
-  draw_text(ctx, buf, FONT_HUGE_NUM, GRect(0, 32, b.size.w, 54));
+  draw_text(ctx, buf, big ? FONT_HUGE_NUM_BIG : FONT_HUGE_NUM,
+            big ? GRect(0, 52, b.size.w, 76) : GRect(0, 32, b.size.w, 54));
   snprintf(buf, sizeof buf, "%lu reps\nwork %lu:%02lu   vol %lu kg", (unsigned long)reps,
            (unsigned long)(work_s / 60), (unsigned long)(work_s % 60),
            (unsigned long)(volume_q / 4));
-  draw_text(ctx, buf, FONT_KEY_GOTHIC_24, GRect(2, 88, b.size.w - 4, 56));
-  draw_text(ctx, "select = finish", FONT_KEY_GOTHIC_18, GRect(2, b.size.h - 24, b.size.w - 4, 22));
+  draw_text_wrap(ctx, buf, FONT_KEY_GOTHIC_24,
+                 big ? GRect(2, 138, b.size.w - 4, 60) : GRect(2, 88, b.size.w - 4, 56));
+  draw_text(ctx, "select = finish", big ? FONT_KEY_GOTHIC_24 : FONT_KEY_GOTHIC_18,
+            big ? GRect(2, b.size.h - 24, b.size.w - 4, 22) : GRect(2, b.size.h - 24, b.size.w - 4, 22));
 }
 
 static void layer_update(Layer *layer, GContext *ctx) {
