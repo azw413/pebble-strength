@@ -133,6 +133,64 @@ pub async fn counters(
 }
 
 #[derive(Deserialize)]
+pub struct HrTrace {
+    pub client_id: i64,
+    pub started_at: i64,
+    #[serde(default = "default_interval")]
+    pub interval_sec: i32,
+    #[serde(default)]
+    pub workout_name: String,
+    #[serde(default)]
+    pub bpm: Vec<i32>,
+}
+
+fn default_interval() -> i32 {
+    5
+}
+
+/// POST /api/device/hr — a workout's heart-rate trace. Stored and attached to
+/// the session by its time window at render. Idempotent on (user, client_id).
+pub async fn hr(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(t): Json<HrTrace>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    use crate::schema::session_hr as sh;
+    let token = bearer_token(&headers);
+    let dev_fallback = state.cfg.dev_login;
+    // avg/peak over real (non-zero) readings.
+    let real: Vec<i32> = t.bpm.iter().copied().filter(|b| *b > 0).collect();
+    let avg = if real.is_empty() {
+        None
+    } else {
+        Some((real.iter().sum::<i32>() as f32 / real.len() as f32).round() as i32)
+    };
+    let peak = real.iter().copied().max();
+    let bpm_json = serde_json::to_string(&t.bpm).unwrap_or_else(|_| "[]".into());
+
+    db::run(&state.pool, move |conn| {
+        let uid = device_user(conn, token, dev_fallback).ok();
+        diesel::insert_into(sh::table)
+            .values((
+                sh::user_id.eq(uid),
+                sh::client_id.eq(t.client_id),
+                sh::workout_name.eq(&t.workout_name),
+                sh::started_at.eq(t.started_at),
+                sh::interval_sec.eq(t.interval_sec),
+                sh::bpm.eq(&bpm_json),
+                sh::avg_bpm.eq(avg),
+                sh::peak_bpm.eq(peak),
+            ))
+            .on_conflict((sh::user_id, sh::client_id))
+            .do_nothing()
+            .execute(conn)?;
+        Ok(())
+    })
+    .await?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
 pub struct CrashReport {
     pub code: i32,
     #[serde(default)]

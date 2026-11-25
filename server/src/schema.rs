@@ -52,6 +52,21 @@ diesel::table! {
 }
 
 diesel::table! {
+    session_hr (id) {
+        id -> Integer,
+        user_id -> Nullable<Integer>,
+        client_id -> BigInt,
+        workout_name -> Text,
+        started_at -> BigInt,
+        interval_sec -> Integer,
+        bpm -> Text,
+        avg_bpm -> Nullable<Integer>,
+        peak_bpm -> Nullable<Integer>,
+        created_at -> Text,
+    }
+}
+
+diesel::table! {
     crash_reports (id) {
         id -> Integer,
         user_id -> Nullable<Integer>,
@@ -217,6 +232,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     counter_configs,
     rep_models,
     crash_reports,
+    session_hr,
     workouts,
     workout_exercises,
     workout_sets,

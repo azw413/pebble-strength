@@ -626,12 +626,49 @@ pub async fn session_detail_page(
             }));
         }
 
+        // Heart-rate trace: match the one whose start is nearest this session's
+        // set window (a user does one workout at a time), then build per-set
+        // markers so the chart can show which set each HR move belongs to.
+        let hr_json = if sets.is_empty() {
+            serde_json::Value::Null
+        } else {
+            use crate::schema::session_hr as sh;
+            let first = sets.first().unwrap().performed_at.and_utc().timestamp();
+            let last = sets.last().unwrap().performed_at.and_utc().timestamp();
+            let rows: Vec<(i64, i32, String, Option<i32>, Option<i32>)> = sh::table
+                .filter(sh::user_id.eq(user.id))
+                .filter(sh::started_at.ge(first - 1800))
+                .filter(sh::started_at.le(last + 120))
+                .select((sh::started_at, sh::interval_sec, sh::bpm, sh::avg_bpm, sh::peak_bpm))
+                .load(conn)?;
+            // Closest start to the session's first set.
+            let best = rows.into_iter().min_by_key(|r| (r.0 - first).abs());
+            match best {
+                None => serde_json::Value::Null,
+                Some((started_at, interval, bpm_s, avg, peak)) => {
+                    let bpm: Vec<i32> = serde_json::from_str(&bpm_s).unwrap_or_default();
+                    let markers: Vec<serde_json::Value> = sets
+                        .iter()
+                        .map(|st| {
+                            let off = (st.performed_at.and_utc().timestamp() - started_at).max(0);
+                            serde_json::json!({"off": off, "name": st.exercise_name})
+                        })
+                        .collect();
+                    serde_json::json!({
+                        "interval": interval, "avg": avg, "peak": peak,
+                        "bpm": bpm, "markers": markers,
+                    })
+                }
+            }
+        };
+
         let session_json = serde_json::json!({
             "id": s.id,
             "workout_name": s.workout_name,
             "performed_on": s.performed_on.format("%Y-%m-%d").to_string(),
             "notes": s.notes,
             "exercises": ex_json,
+            "hr": hr_json,
         });
 
         let cat: Vec<serde_json::Value> = exercises::table

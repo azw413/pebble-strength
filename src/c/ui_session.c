@@ -9,6 +9,7 @@
 #include "rep_model_store.h"
 #include "session_queue.h"
 #include "crumb.h"
+#include "hr.h"
 #include "ui_session.h"
 
 // Guided session: Active set -> Rest -> ... -> Summary (SPEC.md §7).
@@ -290,6 +291,7 @@ static void finish_set(uint8_t actual) {
 
 static void tick(void *context) {
   s_timer = NULL;
+  hr_tick();  // sample HR once per second (internally every HR_INTERVAL_S)
   if (s_phase == PHASE_REST) {
     s_rest_remaining--;
     if (s_rest_remaining <= 0) {
@@ -621,6 +623,8 @@ static void window_load(Window *window) {
   layer_set_update_proc(s_layer, layer_update);
   layer_add_child(root, s_layer);
 
+  hr_begin(s_workout.name);  // start HR trace capture (no-op without the sensor)
+
   s_menu_level = action_menu_level_create(4);
   action_menu_level_add_action(s_menu_level, "Resume", action_performed,
                                (void *)ACTION_RESUME);
@@ -635,6 +639,8 @@ static void window_load(Window *window) {
 static void window_unload(Window *window) {
   cancel_timer();
   accel_stop();
+  hr_end();     // restore the HR sample rate + persist the trace (any exit path)
+  hr_flush();   // best-effort send now; retries on the next phone connection
   recorder_abort();
   finalize_label();  // a discarded session still labels its last staged set
   action_menu_hierarchy_destroy(s_menu_level, NULL, NULL);

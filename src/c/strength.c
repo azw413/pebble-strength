@@ -8,6 +8,7 @@
 #include "rep_model_store.h"
 #include "session_queue.h"
 #include "crumb.h"
+#include "hr.h"
 
 #define MSG_SESSION_SET 3  // watch -> phone: one queued set summary to POST
 
@@ -163,7 +164,10 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   if (dict_find(iter, MESSAGE_KEY_SQ_PULL)) {
     s_flushing = true;
     flush_next_queued();  // phone connected -> start flushing offline sets
+    hr_flush();           // and any pending HR trace
   }
+  Tuple *hr_ack_t = dict_find(iter, MESSAGE_KEY_HR_ACK);
+  if (hr_ack_t) hr_ack(hr_ack_t->value->uint32);  // server stored the trace
 }
 
 static void window_load(Window *window) {
@@ -205,6 +209,7 @@ int main(void) {
   exercises_init();         // load persisted downloaded exercise-name catalog
   rep_model_store_init();   // load persisted learned-counter model (v2)
   session_queue_init();     // load any offline set summaries awaiting upload
+  hr_init();                // load a persisted HR trace awaiting upload
   crumb_check_previous(&s_crash);  // did the previous run crash? report on sync
   app_message_register_inbox_received(inbox_received);
   app_message_open(512, RECORDER_OUTBOX_SIZE);

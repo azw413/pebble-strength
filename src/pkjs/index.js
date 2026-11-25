@@ -12,6 +12,7 @@ var MSG_REC_META = 0;
 var MSG_REC_CHUNK = 1;
 var MSG_REC_DONE = 2;
 var MSG_SESSION_SET = 3;  // watch -> phone: one offline-queued set summary
+var MSG_HR = 4;           // watch -> phone: a workout's heart-rate trace
 
 function noop() {}
 
@@ -372,9 +373,39 @@ function postCrash(p) {
   }));
 }
 
+// A workout's heart-rate trace: a byte array of BPM (0 = no reading) at a fixed
+// interval from started_at. POST it, then ack so the watch clears it.
+function postHr(p) {
+  var s = getSettings();
+  if (!s.token) { return; }
+  var bpm = p.HR_DATA ? [].slice.call(p.HR_DATA, 0, p.HR_COUNT) : [];
+  var body = JSON.stringify({
+    client_id: p.CLIENT_ID,
+    started_at: p.HR_START,
+    interval_sec: p.HR_INTERVAL,
+    workout_name: p.WORKOUT_NAME || '',
+    bpm: bpm
+  });
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', s.server + '/api/device/hr');
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('Authorization', 'Bearer ' + s.token);
+  xhr.onload = function() {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      console.log('HR trace ' + p.CLIENT_ID + ' synced (' + bpm.length + ' samples)');
+      Pebble.sendAppMessage({ HR_ACK: p.CLIENT_ID }, noop, noop);
+    } else {
+      console.log('HR POST HTTP ' + xhr.status);
+    }
+  };
+  xhr.onerror = function() { console.log('HR POST failed (server unreachable)'); };
+  xhr.send(body);
+}
+
 Pebble.addEventListener('appmessage', function(e) {
   var p = e.payload;
   if (p.CRASH_CODE !== undefined) { postCrash(p); return; }
+  if (p.MSG_TYPE === MSG_HR) { postHr(p); return; }
   if (p.MSG_TYPE === MSG_SESSION_SET) { postSession(p); return; }
   var id = p.REC_ID;
   if (p.MSG_TYPE === MSG_REC_META) {
