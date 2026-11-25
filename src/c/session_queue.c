@@ -68,7 +68,13 @@ static void save(void) {
 
 void session_queue_init(void) {
   s_len = 0;
-  s_next_id = persist_exists(PERSIST_SQ_NEXTID) ? (uint32_t)persist_read_int(PERSIST_SQ_NEXTID) : 1;
+  // Seed the id counter from the watch clock on a fresh install, NOT from 1:
+  // Pebble wipes app persist on every reinstall, so starting at 1 made new sets
+  // collide with the user's historical client_set_ids, and the server's
+  // idempotency check then silently dropped them. A unix-time base is always
+  // ahead of any past id (and of the next reinstall's base). See [[watch-phone-sync]].
+  s_next_id = persist_exists(PERSIST_SQ_NEXTID) ? (uint32_t)persist_read_int(PERSIST_SQ_NEXTID)
+                                                : (uint32_t)time(NULL);
   int len = persist_exists(PERSIST_SQ_LEN) ? persist_read_int(PERSIST_SQ_LEN) : 0;
   if (len < 0) len = 0;
   if (len > SQ_MAX) len = SQ_MAX;
