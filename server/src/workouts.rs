@@ -186,8 +186,15 @@ pub fn save(
     input: &WorkoutInput,
 ) -> Result<(i32, usize), AppError> {
     let ex_ids: Vec<i32> = input.exercises.iter().map(|e| e.exercise_id).collect();
+    // Built-ins plus this user's own custom movements — anything else is
+    // "unknown exercise" to them, so one user can't build on another's catalog.
     let known: Vec<Exercise> = exercises::table
         .filter(exercises::id.eq_any(&ex_ids))
+        .filter(
+            exercises::owner_user_id
+                .is_null()
+                .or(exercises::owner_user_id.eq(user_id)),
+        )
         .load(conn)?;
     let by_id: HashMap<i32, Exercise> = known.into_iter().map(|e| (e.id, e)).collect();
 
